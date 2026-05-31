@@ -1,0 +1,48 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    @apply bg-background;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    background-image:
+      radial-gradient(circle at top left, rgba(91, 95, 239, 0.14), transparent 24%),
+      radial-gradient(circle at top right, rgba(34, 197, 94, 0.08), transparent 20%),
+      linear-gradient(180deg, #fbfcff 0%, #f7f8fc 46%, #f4f7fb 100%);
+    min-height: 100vh;
+  }
+
+  #root {
+    min-height: 100vh;
+  }
+}
+
+@layer utilities {
+  .surface-card {
+    @apply rounded-[28px] border border-border bg-card shadow-panel;
+  }
+
+  .page-shell {
+    @apply mx-auto w-full max-w-[1600px] px-4 py-5 sm:px-6 lg:px-8;
+  }
+
+  .section-grid {
+    @apply grid gap-5;
+  }
+
+  .subtle-ring {
+    box-shadow:
+      0 0 0 1px rgba(229, 231, 235, 1),
+      0 12px 30px rgba(15, 23, 42, 0.05);
+  }
+}

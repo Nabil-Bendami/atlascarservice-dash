@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { invokeSupabaseFunction } from "@/lib/supabaseFunctions";
 import type { AgencyCreateInput, CarAvailability, DashboardStats } from "@/types";
 
 export interface OwnerCityStats {
@@ -31,6 +32,7 @@ export interface OwnerAgencySummary {
   latitude: number | null;
   longitude: number | null;
   status: string;
+  is_blocked: boolean;
   verified: boolean;
   cars_count: number;
   reservations_count: number;
@@ -100,29 +102,26 @@ export interface CarsFilters {
 
 export const ownerDashboardService = {
   async createAgencyWithAuth(input: AgencyCreateInput & { cityId?: number | null }) {
-    const { data, error } = await supabase.functions.invoke("create-agency-user", {
-      body: {
-        email: input.email,
-        password: input.password,
-        agencyName: input.agencyName,
-        logo: input.logo,
-        coverImage: input.coverImage,
-        city: input.city,
-        cityId: input.cityId ?? null,
-        region: input.region,
-        address: input.address,
-        phone: input.phone,
-        whatsapp: input.whatsapp,
-        description: input.description,
-        latitude: input.latitude,
-        longitude: input.longitude,
-        status: input.status,
-        verified: input.verified,
-      },
-    });
+    const payload = {
+      email: input.email,
+      password: input.password,
+      agencyName: input.agencyName,
+      logo: input.logo,
+      coverImage: input.coverImage,
+      city: input.city,
+      cityId: input.cityId ?? null,
+      region: input.region,
+      address: input.address,
+      phone: input.phone,
+      whatsapp: input.whatsapp,
+      description: input.description,
+      latitude: input.latitude,
+      longitude: input.longitude,
+      status: input.status,
+      verified: input.verified,
+    };
 
-    if (error) throw error;
-    return data as { agencyId: string; userId: string; email: string };
+    return invokeSupabaseFunction<typeof payload, { agencyId: string; userId: string; email: string }>("create-agency-user", payload);
   },
 
   async getDashboardStats() {

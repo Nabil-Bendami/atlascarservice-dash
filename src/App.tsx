@@ -25,6 +25,7 @@ const TrafficPage = lazy(() => import("@/pages/TrafficPage").then((module) => ({
 const TrafficDetailsPage = lazy(() =>
   import("@/pages/TrafficDetailsPage").then((module) => ({ default: module.TrafficDetailsPage })),
 );
+const SettingsPage = lazy(() => import("@/pages/SettingsPage").then((module) => ({ default: module.SettingsPage })));
 
 export function App() {
   return (
@@ -49,6 +50,7 @@ export function App() {
             <Route path="/cars/:carId" element={<CarDetailsPage />} />
             <Route path="/traffic" element={<TrafficPage />} />
             <Route path="/traffic/:cityId" element={<TrafficDetailsPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

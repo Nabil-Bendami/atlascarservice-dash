@@ -1,35 +1,38 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { CarCard } from "@/components/cars/CarCard";
+import { ImportWizardModal } from "@/components/import/ImportWizardModal";
 import { AsyncState } from "@/components/shared/AsyncState";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { ToastNotice } from "@/components/shared/ToastNotice";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { carService, type CarFilters } from "@/services/carService";
-import { ownerService } from "@/services/ownerService";
 import type { Agency, Car, City } from "@/types";
 
 export function CarsPage() {
   const [filters, setFilters] = useState<CarFilters>({});
-  const [cars, setCars] = useState<Car[]>([]);
+  const [allCars, setAllCars] = useState<Car[]>([]);
   const [cities, setCities] = useState<City[]>([]);
   const [agencies, setAgencies] = useState<Agency[]>([]);
-  const [brands, setBrands] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [notice, setNotice] = useState<{ tone: "success" | "error"; message: string } | null>(null);
 
   useEffect(() => {
     async function load() {
       try {
         setLoading(true);
-        const [carData, options] = await Promise.all([carService.listCars(filters), ownerService.getFilterOptions()]);
-        setCars(carData);
-        setCities(options.cities);
-        setAgencies(options.agencies);
-        setBrands(options.brands);
+        setError(null);
+        const managementData = await carService.getCarsManagementData();
+        setAllCars(managementData.cars);
+        setCities(managementData.cities);
+        setAgencies(managementData.agencies);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unable to load cars");
       } finally {
@@ -38,20 +41,96 @@ export function CarsPage() {
     }
 
     void load();
-  }, [filters]);
+  }, []);
 
-  const filteredCars = cars.filter((car) => {
+  useEffect(() => {
+    if (!notice) return;
+    const timeout = window.setTimeout(() => setNotice(null), 3200);
+    return () => window.clearTimeout(timeout);
+  }, [notice]);
+
+  const cityScopedAgencies = useMemo(() => {
+    if (!filters.city) return agencies;
+    return agencies.filter((agency) => agency.cityId === filters.city);
+  }, [agencies, filters.city]);
+
+  useEffect(() => {
+    if (!filters.agency) return;
+    if (!cityScopedAgencies.some((agency) => agency.id === filters.agency)) {
+      setFilters((current) => ({ ...current, agency: undefined }));
+    }
+  }, [cityScopedAgencies, filters.agency]);
+
+  const filterScopedCars = useMemo(() => {
+    return carService.filterCars(allCars, filters);
+  }, [allCars, filters]);
+
+  const brandOptions = useMemo(() => {
+    const scopedCars = allCars.filter((car) => {
+      if (filters.city && car.cityId !== filters.city) return false;
+      if (filters.agency && car.agencyId !== filters.agency) return false;
+      return true;
+    });
+
+    return Array.from(new Set(scopedCars.map((car) => car.brand).filter(Boolean))).sort((left, right) => left.localeCompare(right));
+  }, [allCars, filters.agency, filters.city]);
+
+  useEffect(() => {
+    if (!filters.brand) return;
+    if (!brandOptions.includes(filters.brand)) {
+      setFilters((current) => ({ ...current, brand: undefined }));
+    }
+  }, [brandOptions, filters.brand]);
+
+  const filteredCars = filterScopedCars.filter((car) => {
     const term = search.toLowerCase();
     if (!term) return true;
     return [car.brand, car.model, car.agencyName, car.cityName].some((value) => value.toLowerCase().includes(term));
   });
 
+  const emptyMessage = allCars.length === 0 ? "No cars yet." : "No cars match these filters.";
+
   return (
     <div className="space-y-6">
+      {notice ? <ToastNotice tone={notice.tone} message={notice.message} /> : null}
       <PageHeader
         eyebrow="Fleet"
         title="Cars management"
         subtitle="Filter and review inventory across all agencies with clean cards, availability states, and revenue performance."
+        actions={
+          <Button variant="outline" onClick={() => setImportOpen(true)}>
+            Import Excel
+          </Button>
+        }
+      />
+      <ImportWizardModal
+        entity="cars"
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImported={async (successCount, failedCount) => {
+          try {
+            setLoading(true);
+            const managementData = await carService.getCarsManagementData();
+            setAllCars(managementData.cars);
+            setCities(managementData.cities);
+            setAgencies(managementData.agencies);
+            setNotice({
+              tone: successCount > 0 ? "success" : "error",
+              message:
+                successCount > 0
+                  ? `${successCount} cars imported successfully${failedCount ? ` (${failedCount} failed rows)` : ""}.`
+                  : "No cars were imported.",
+            });
+          } catch (reloadError) {
+            console.error("[cars-page] refresh after import failed", reloadError);
+            setNotice({
+              tone: "error",
+              message: reloadError instanceof Error ? reloadError.message : "Unable to refresh cars after import.",
+            });
+          } finally {
+            setLoading(false);
+          }
+        }}
       />
 
       <Card>
@@ -70,14 +149,14 @@ export function CarsPage() {
             label="Agency"
             value={filters.agency}
             placeholder="All agencies"
-            items={agencies.map((agency) => ({ value: agency.id, label: agency.name }))}
+            items={cityScopedAgencies.map((agency) => ({ value: agency.id, label: agency.name }))}
             onChange={(value) => setFilters((current) => ({ ...current, agency: value }))}
           />
           <FilterSelect
             label="Brand"
             value={filters.brand}
             placeholder="All brands"
-            items={brands.map((brand) => ({ value: brand, label: brand }))}
+            items={brandOptions.map((brand) => ({ value: brand, label: brand }))}
             onChange={(value) => setFilters((current) => ({ ...current, brand: value }))}
           />
           <FilterSelect
@@ -115,7 +194,7 @@ export function CarsPage() {
         </CardContent>
       </Card>
 
-      <AsyncState loading={loading} error={error} isEmpty={!filteredCars.length} emptyMessage="No cars match these filters.">
+      <AsyncState loading={loading} error={error} isEmpty={!filteredCars.length} emptyMessage={emptyMessage}>
         <div className="grid gap-5">
           {filteredCars.map((car) => (
             <CarCard key={car.id} car={car} />

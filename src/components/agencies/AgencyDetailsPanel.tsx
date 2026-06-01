@@ -17,6 +17,7 @@ export function AgencyDetailsPanel({ agency }: { agency: Agency }) {
               </div>
           </div>
           <div className="flex gap-2">
+            {agency.isBlocked ? <Badge variant="destructive">Blocked</Badge> : null}
             <Badge variant={agency.verified ? "success" : "secondary"}>
               {agency.verified ? "Verified" : "Pending verification"}
             </Badge>

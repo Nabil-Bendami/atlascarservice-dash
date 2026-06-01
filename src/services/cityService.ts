@@ -34,6 +34,7 @@ function mapAgency(row: Record<string, unknown>): Agency {
     latitude: Number(row.latitude ?? 0),
     longitude: Number(row.longitude ?? 0),
     status: (row.status as Agency["status"]) ?? "active",
+    isBlocked: Boolean(row.is_blocked ?? false),
     verified: Boolean(row.verified ?? false),
     carsCount: Number(row.cars_count ?? 0),
     reservationsCount: Number(row.reservations_count ?? 0),

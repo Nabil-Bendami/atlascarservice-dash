@@ -5,35 +5,35 @@ export default {
   theme: {
     extend: {
       colors: {
-        background: "#F7F8FC",
-        foreground: "#111827",
-        border: "#E5E7EB",
-        input: "#FFFFFF",
-        ring: "#5B5FEF",
-        card: "#FFFFFF",
+        background: "rgb(var(--background) / <alpha-value>)",
+        foreground: "rgb(var(--foreground) / <alpha-value>)",
+        border: "rgb(var(--border) / <alpha-value>)",
+        input: "rgb(var(--input) / <alpha-value>)",
+        ring: "rgb(var(--ring) / <alpha-value>)",
+        card: "rgb(var(--card) / <alpha-value>)",
         primary: {
-          DEFAULT: "#5B5FEF",
-          foreground: "#FFFFFF",
+          DEFAULT: "rgb(var(--primary) / <alpha-value>)",
+          foreground: "rgb(var(--primary-foreground) / <alpha-value>)",
         },
         secondary: {
-          DEFAULT: "#22C55E",
-          foreground: "#FFFFFF",
+          DEFAULT: "rgb(var(--secondary) / <alpha-value>)",
+          foreground: "rgb(var(--secondary-foreground) / <alpha-value>)",
         },
         accent: {
-          DEFAULT: "#F59E0B",
-          foreground: "#FFFFFF",
+          DEFAULT: "rgb(var(--accent) / <alpha-value>)",
+          foreground: "rgb(var(--accent-foreground) / <alpha-value>)",
         },
         muted: {
-          DEFAULT: "#F3F4F6",
-          foreground: "#6B7280",
+          DEFAULT: "rgb(var(--muted) / <alpha-value>)",
+          foreground: "rgb(var(--muted-foreground) / <alpha-value>)",
         },
         destructive: {
-          DEFAULT: "#b42318",
-          foreground: "#fff",
+          DEFAULT: "rgb(var(--destructive) / <alpha-value>)",
+          foreground: "rgb(var(--destructive-foreground) / <alpha-value>)",
         },
         success: {
-          DEFAULT: "#0f9d58",
-          foreground: "#f0fdf4",
+          DEFAULT: "rgb(var(--success) / <alpha-value>)",
+          foreground: "rgb(var(--success-foreground) / <alpha-value>)",
         },
       },
       fontFamily: {

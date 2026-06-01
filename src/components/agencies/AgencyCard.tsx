@@ -6,7 +6,26 @@ import { Card, CardContent } from "@/components/ui/card";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import type { Agency } from "@/types";
 
-export function AgencyCard({ agency }: { agency: Agency }) {
+type AgencyCardProps = {
+  agency: Agency;
+  isUpdating?: boolean;
+  onToggleBlocked?: (agency: Agency, nextBlockedState: boolean) => Promise<void> | void;
+};
+
+export function AgencyCard({ agency, isUpdating = false, onToggleBlocked }: AgencyCardProps) {
+  async function handleToggleBlocked() {
+    if (!onToggleBlocked) return;
+
+    const confirmed = window.confirm(
+      agency.isBlocked
+        ? "Are you sure you want to unblock this agency? Its ads and cars will appear again on the public site."
+        : "Are you sure you want to block this agency? Its ads and cars will no longer appear on the public site.",
+    );
+
+    if (!confirmed) return;
+    await onToggleBlocked(agency, !agency.isBlocked);
+  }
+
   return (
     <Card className="overflow-hidden">
       <div className="h-28 bg-cover bg-center" style={{ backgroundImage: `url(${agency.coverImage})` }} />
@@ -18,6 +37,7 @@ export function AgencyCard({ agency }: { agency: Agency }) {
             <p className="text-sm text-muted-foreground">{agency.address}</p>
           </div>
           <div className="flex gap-2">
+            {agency.isBlocked ? <Badge variant="destructive">Blocked</Badge> : null}
             <Badge variant={agency.verified ? "success" : "secondary"}>
               {agency.verified ? "Verified" : "Pending"}
             </Badge>
@@ -34,9 +54,20 @@ export function AgencyCard({ agency }: { agency: Agency }) {
           <Metric icon={Wallet} label="Conversion" value={`${agency.conversionRate}%`} />
         </div>
 
-        <Button asChild className="mt-5 w-full">
-          <Link to={`/agencies/${agency.id}`}>Voir détails</Link>
-        </Button>
+        <div className="mt-5 flex gap-3">
+          <Button asChild className="flex-1">
+            <Link to={`/agencies/${agency.id}`}>Voir détails</Link>
+          </Button>
+          <Button
+            type="button"
+            variant={agency.isBlocked ? "success" : "destructive"}
+            className="flex-1"
+            disabled={isUpdating}
+            onClick={() => void handleToggleBlocked()}
+          >
+            {isUpdating ? "Updating..." : agency.isBlocked ? "Unblock agency" : "Block agency"}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

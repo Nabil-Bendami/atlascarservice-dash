@@ -9,6 +9,38 @@ export interface OwnerProfile {
   role: OwnerRole;
 }
 
+export interface OwnerSettings {
+  ownerId: string;
+  profile: {
+    fullName: string;
+    email: string;
+  };
+  workspace: {
+    workspaceName: string;
+    companyName: string;
+    companyWebsite: string;
+  };
+  appearance: {
+    darkMode: boolean;
+    accentColor: string;
+    reduceMotion: boolean;
+    compactLayout: boolean;
+  };
+  notifications: {
+    emailNotifications: boolean;
+    importNotifications: boolean;
+    securityNotifications: boolean;
+  };
+}
+
+export interface OwnerApiToken {
+  id: string;
+  label: string;
+  tokenPreview: string;
+  isRevoked: boolean;
+  createdAt: string;
+}
+
 export interface DashboardStats {
   totalAgencies: number;
   totalCars: number;
@@ -56,6 +88,7 @@ export interface Agency {
   latitude: number;
   longitude: number;
   status: AgencyStatus;
+  isBlocked: boolean;
   verified: boolean;
   carsCount: number;
   reservationsCount: number;
@@ -82,6 +115,10 @@ export interface Car {
   views: number;
   whatsappClicks: number;
   phoneClicks: number;
+  transmission?: string;
+  fuelType?: string;
+  seats?: number;
+  description?: string;
 }
 
 export interface ReservationHistoryItem {
@@ -118,14 +155,47 @@ export interface AgencyCreateInput {
   agencyName: string;
   logo: string;
   coverImage: string;
+  cityId: number | null;
   city: string;
   region: string;
   address: string;
   phone: string;
   whatsapp: string;
-  description: string;
+  description?: string;
   latitude: number;
   longitude: number;
   status: AgencyStatus;
   verified: boolean;
+}
+
+export interface AgencyImportRow {
+  rowNumber: number;
+  agency_name: string;
+  email: string;
+  phone: string;
+  whatsapp: string;
+  city: string;
+  address: string;
+  description?: string;
+  status?: string;
+  is_verified?: string | boolean;
+  logo_url?: string;
+  cover_image_url?: string;
+}
+
+export interface CarImportRow {
+  rowNumber: number;
+  agency_name?: string;
+  agency_email?: string;
+  brand: string;
+  model: string;
+  year: number | string;
+  price_per_day: number | string;
+  city: string;
+  transmission?: string;
+  fuel_type?: string;
+  seats?: number | string;
+  image_url?: string;
+  availability_status?: string;
+  description?: string;
 }

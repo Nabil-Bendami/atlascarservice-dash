@@ -1,4 +1,4 @@
-import { Building2, Car, Gauge, Globe2, MapPinned, PlusSquare, ShieldCheck } from "lucide-react";
+import { Building2, Car, Gauge, Globe2, MapPinned, PlusSquare, Settings, ShieldCheck } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
@@ -9,12 +9,13 @@ const links = [
   { to: "/agencies", label: "Agencies", icon: Building2 },
   { to: "/agencies/create", label: "Create Agency", icon: PlusSquare },
   { to: "/cars", label: "Cars", icon: Car },
+  { to: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function Sidebar() {
   return (
     <aside className="surface-card sticky top-4 flex h-[calc(100vh-2rem)] flex-col p-4">
-      <div className="rounded-[24px] bg-gradient-to-br from-primary to-[#7C82FF] p-5 text-white shadow-soft">
+      <div className="rounded-[24px] bg-primary p-5 text-white shadow-soft">
         <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white/20">
           <ShieldCheck className="h-5 w-5" />
         </div>
@@ -31,7 +32,7 @@ export function Sidebar() {
             className={({ isActive }) =>
               cn(
                 "flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-900",
-                isActive && "bg-gradient-to-r from-primary to-[#7C82FF] text-white shadow-soft",
+                isActive && "bg-primary text-white shadow-soft",
               )
             }
           >

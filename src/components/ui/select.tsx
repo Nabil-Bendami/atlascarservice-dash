@@ -33,7 +33,7 @@ const SelectContent = React.forwardRef<
   <SelectPrimitive.Portal>
     <SelectPrimitive.Content
       ref={ref}
-      className={cn("z-50 overflow-hidden rounded-2xl border border-border bg-white p-2 shadow-panel", className)}
+      className={cn("z-50 overflow-hidden rounded-2xl border border-border bg-card p-2 text-foreground shadow-panel", className)}
       {...props}
     >
       <SelectPrimitive.Viewport>{children}</SelectPrimitive.Viewport>
@@ -49,7 +49,7 @@ const SelectItem = React.forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex cursor-default select-none items-center rounded-xl py-2.5 pl-9 pr-3 text-sm outline-none data-[highlighted]:bg-slate-100",
+      "relative flex cursor-default select-none items-center rounded-xl py-2.5 pl-9 pr-3 text-sm outline-none data-[highlighted]:bg-slate-100 data-[highlighted]:text-foreground",
       className,
     )}
     {...props}

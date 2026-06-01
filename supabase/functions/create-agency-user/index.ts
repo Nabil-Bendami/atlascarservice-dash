@@ -59,11 +59,22 @@ serve(async (request) => {
   }
 
   try {
+    console.log("[create-agency-user] request:start", {
+      method: request.method,
+      url: request.url,
+      hasAuthorization: Boolean(request.headers.get("Authorization")),
+    });
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
     if (!supabaseUrl || !anonKey || !serviceRoleKey) {
+      console.error("[create-agency-user] missing-env", {
+        hasSupabaseUrl: Boolean(supabaseUrl),
+        hasAnonKey: Boolean(anonKey),
+        hasServiceRoleKey: Boolean(serviceRoleKey),
+      });
       return jsonResponse(500, { error: "Missing Supabase environment variables." });
     }
 
@@ -84,6 +95,10 @@ serve(async (request) => {
 
     const { data: authData, error: authError } = await userClient.auth.getUser();
     if (authError || !authData.user) {
+      console.error("[create-agency-user] auth:getUser failed", {
+        authError,
+        hasUser: Boolean(authData?.user),
+      });
       return jsonResponse(401, { error: "Unauthorized." });
     }
 
@@ -103,10 +118,18 @@ serve(async (request) => {
     }
 
     if (ownerRole !== "super_owner") {
+      console.error("[create-agency-user] role-check failed", {
+        ownerId,
+        ownerRole,
+      });
       return jsonResponse(403, { error: "Only super owners can create agency users." });
     }
 
     const payload = (await request.json()) as Partial<CreateAgencyPayload>;
+    console.log("[create-agency-user] payload", {
+      ...payload,
+      password: payload.password ? `<redacted length=${payload.password.length}>` : undefined,
+    });
     validatePayload(payload);
 
     let createdAuthUserId: string | null = null;
@@ -123,6 +146,7 @@ serve(async (request) => {
     });
 
     if (createAuthError || !createdAuth.user) {
+      console.error("[create-agency-user] auth.admin.createUser failed", createAuthError);
       const duplicate = createAuthError?.message?.toLowerCase().includes("already");
       return jsonResponse(duplicate ? 409 : 400, {
         error: duplicate ? "An account already exists for this email." : createAuthError?.message ?? "Unable to create auth user.",
@@ -146,6 +170,7 @@ serve(async (request) => {
       latitude: payload.latitude ?? null,
       longitude: payload.longitude ?? null,
       status: payload.status ?? "active",
+      is_blocked: false,
       is_verified: payload.verified ?? false,
     };
 
@@ -154,6 +179,11 @@ serve(async (request) => {
       .insert(agencyInsertPayload)
       .select("id")
       .single();
+
+    console.log("[create-agency-user] agencies.insert response", {
+      agencyInsert,
+      insertAgencyError,
+    });
 
     if (insertAgencyError || !agencyInsert) {
       throw insertAgencyError ?? new Error("Agency insert failed.");
@@ -168,12 +198,23 @@ serve(async (request) => {
       target_agency_id: createdAgencyId,
     });
 
+    console.log("[create-agency-user] sync_identity_role response", {
+      createdAgencyId,
+      createdAuthUserId,
+      syncIdentityError,
+    });
+
     if (syncIdentityError) {
       throw syncIdentityError;
     }
 
     const { error: permissionsError } = await adminClient.from("agency_permissions").insert({
       agency_id: createdAgencyId,
+    });
+
+    console.log("[create-agency-user] agency_permissions.insert response", {
+      createdAgencyId,
+      permissionsError,
     });
 
     if (permissionsError) {
@@ -193,9 +234,20 @@ serve(async (request) => {
       ip_address: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
     });
 
+    console.log("[create-agency-user] admin_audit_logs.insert response", {
+      createdAgencyId,
+      auditError,
+    });
+
     if (auditError) {
       throw auditError;
     }
+
+    console.log("[create-agency-user] request:success", {
+      createdAgencyId,
+      createdAuthUserId,
+      email: payload.email,
+    });
 
     return jsonResponse(200, {
       agencyId: createdAgencyId,
@@ -203,6 +255,10 @@ serve(async (request) => {
       email: payload.email,
     });
   } catch (error) {
+    console.error("[create-agency-user] request:failure", {
+      error,
+      stack: error instanceof Error ? error.stack : null,
+    });
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 

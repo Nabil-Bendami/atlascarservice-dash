@@ -1,4 +1,4 @@
-import { isSupabaseConfigured, supabase, supabaseAnonKey, supabaseConfigStatus, supabaseFunctionsBaseUrl } from "@/lib/supabase";
+import { isSupabaseConfigured, supabase, supabaseAnonKey, supabaseConfigStatus, supabaseFunctionsBaseUrl, supabaseProjectRef, supabaseUrl } from "@/lib/supabase";
 
 type FunctionErrorCode =
   | "CONFIG_MISSING"
@@ -87,6 +87,8 @@ function toFunctionErrorCode(status: number): FunctionErrorCode {
 }
 
 export async function invokeSupabaseFunction<TRequest, TResponse>(functionName: string, payload: TRequest) {
+  console.log("[supabase:function] Supabase URL", supabaseUrl ?? null);
+  console.log("[supabase:function] Project ref", supabaseProjectRef ?? null);
   console.log("[supabase:function] invoke:start", {
     functionName,
     requestUrl: supabaseFunctionsBaseUrl ? `${supabaseFunctionsBaseUrl}/${functionName}` : null,
@@ -160,12 +162,26 @@ export async function invokeSupabaseFunction<TRequest, TResponse>(functionName: 
     ok: response.ok,
     body: parsedBody,
   });
+  console.log("[supabase:function] Function invoke response", {
+    functionName,
+    requestUrl,
+    status: response.status,
+    ok: response.ok,
+    body: parsedBody,
+  });
 
   if (!response.ok) {
     const error = new SupabaseFunctionError(toFunctionErrorMessage(functionName, response.status, parsedBody), {
       code: toFunctionErrorCode(response.status),
       status: response.status,
       details: parsedBody,
+    });
+    console.log("[supabase:function] Function error", {
+      functionName,
+      requestUrl,
+      projectRef: supabaseProjectRef,
+      status: response.status,
+      body: parsedBody,
     });
     console.error("[supabase:function] invoke:failed", {
       functionName,

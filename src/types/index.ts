@@ -1,12 +1,13 @@
 export type AgencyStatus = "active" | "suspended";
 export type CarAvailability = "available" | "rented" | "maintenance";
-export type OwnerRole = "super_owner" | "agency_owner" | "guest";
+export type OwnerRole = "super_owner" | "agency" | "agency_owner" | "client" | "guest";
 
 export interface OwnerProfile {
   id: string;
   email: string;
   full_name: string;
   role: OwnerRole;
+  agency_id?: string | null;
 }
 
 export interface OwnerSettings {

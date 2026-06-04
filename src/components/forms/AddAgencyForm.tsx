@@ -201,7 +201,9 @@ export function AddAgencyForm() {
       });
 
       console.log("[agency:create-form] submit:success", agency);
-      setMessage(`${agency.name} created successfully.`);
+      setMessage(
+        `${agency.name} created successfully.\nLogin email: ${values.email}\nPassword: ${values.password}`,
+      );
       reset();
       setLogoField((current) => {
         if (current.previewUrl) URL.revokeObjectURL(current.previewUrl);
@@ -312,9 +314,9 @@ export function AddAgencyForm() {
           </Section>
 
           {message ? (
-            <div className="flex items-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-              <CheckCircle2 className="h-4 w-4" />
-              {message}
+            <div className="flex items-start gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+              <span className="whitespace-pre-line">{message}</span>
             </div>
           ) : null}
           {error ? <p className="text-sm text-rose-600">{error}</p> : null}

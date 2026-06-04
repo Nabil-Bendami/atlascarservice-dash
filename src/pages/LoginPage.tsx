@@ -9,8 +9,8 @@ import { Label } from "@/components/ui/label";
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [email, setEmail] = useState("owner123@test.com");
-  const [password, setPassword] = useState("Owner@123456");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -22,10 +22,11 @@ export function LoginPage() {
     try {
       console.info("[login] submitting owner login", { email: email.trim().toLowerCase() });
       const profile = await authService.signIn(email, password);
-      if (profile.role !== "super_owner") {
-        throw new Error("Access denied. Only super owners can enter.");
+      if (profile.role !== "super_owner" && profile.role !== "agency") {
+        throw new Error(`Access denied. Unsupported role: ${profile.role}.`);
       }
-      const target = (location.state as { from?: { pathname: string } })?.from?.pathname ?? "/dashboard";
+      const ownerTarget = (location.state as { from?: { pathname: string } })?.from?.pathname ?? "/dashboard";
+      const target = profile.role === "super_owner" ? ownerTarget : authService.getDefaultRedirectTarget(profile);
       navigate(target, { replace: true });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to login";
@@ -42,17 +43,17 @@ export function LoginPage() {
         <CardHeader>
           <p className="text-sm uppercase tracking-[0.35em] text-primary">Private access</p>
           <CardTitle className="text-3xl text-slate-900">Owner login</CardTitle>
-          <CardDescription>Only users with role <strong>super_owner</strong> can access the dashboard.</CardDescription>
+          <CardDescription>Super owners and agency accounts can sign in. Each role is redirected to its own access path.</CardDescription>
         </CardHeader>
         <CardContent>
           <form className="space-y-5" onSubmit={onSubmit}>
             <div className="space-y-2">
               <Label>Email</Label>
-              <Input value={email} onChange={(event) => setEmail(event.target.value)} />
+              <Input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="owner@company.com" />
             </div>
             <div className="space-y-2">
               <Label>Password</Label>
-              <Input type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
+              <Input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your password" />
             </div>
             {error ? <p className="text-sm text-rose-600">{error}</p> : null}
             <Button type="submit" className="w-full" size="lg" disabled={loading}>

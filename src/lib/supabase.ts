@@ -17,12 +17,14 @@ function normalizeEnvValue(value?: string) {
 export const supabaseUrl = normalizeEnvValue(import.meta.env.VITE_SUPABASE_URL);
 export const supabaseAnonKey = normalizeEnvValue(import.meta.env.VITE_SUPABASE_ANON_KEY);
 export const supabaseFunctionsBaseUrl = supabaseUrl ? `${supabaseUrl.replace(/\/$/, "")}/functions/v1` : null;
+export const supabaseProjectRef = supabaseUrl ? new URL(supabaseUrl).host.split(".")[0] ?? null : null;
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 export const supabaseConfigStatus = {
   hasUrl: Boolean(supabaseUrl),
   hasAnonKey: Boolean(supabaseAnonKey),
   urlHost: supabaseUrl ? new URL(supabaseUrl).host : null,
+  projectRef: supabaseProjectRef,
   anonKeyContainsWhitespace: Boolean(supabaseAnonKey && /\s/.test(supabaseAnonKey)),
 };
 

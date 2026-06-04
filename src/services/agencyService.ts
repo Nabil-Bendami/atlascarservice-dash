@@ -1,6 +1,6 @@
 import { mockAgencies, mockAgencyFromInput, mockCars, mockReservationHistory } from "@/data/mock-data";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
-import { SupabaseFunctionError, invokeSupabaseFunction } from "@/lib/supabaseFunctions";
+import { FunctionsFetchError, FunctionsHttpError, FunctionsRelayError } from "@supabase/supabase-js";
 import type { Agency, AgencyCreateInput, Car, ReservationHistoryItem } from "@/types";
 
 const AGENCY_MEDIA_BUCKET = "agency-media";
@@ -59,10 +59,6 @@ type AgencyCreationResult = Agency & {
 };
 
 function mapSupabaseErrorToAgencyMessage(error: unknown) {
-  if (error instanceof SupabaseFunctionError) {
-    return error.message;
-  }
-
   if (error instanceof Error) {
     const lowerMessage = error.message.toLowerCase();
 
@@ -88,36 +84,23 @@ function mapSupabaseErrorToAgencyMessage(error: unknown) {
   return "Unexpected error while creating the agency.";
 }
 
-async function resolveCityId(input: AgencyCreateInput) {
-  if (typeof input.cityId === "number" && Number.isFinite(input.cityId)) {
-    return input.cityId;
+async function getFunctionErrorMessage(error: FunctionsFetchError | FunctionsHttpError | FunctionsRelayError | Error) {
+  if (error instanceof FunctionsHttpError) {
+    try {
+      const responseBody = await error.context.json();
+      const message =
+        typeof responseBody?.error === "string"
+          ? responseBody.error
+          : typeof responseBody?.message === "string"
+            ? responseBody.message
+            : error.message;
+      return message;
+    } catch {
+      return error.message;
+    }
   }
 
-  const normalizedCity = input.city.trim();
-
-  console.log("[agency:create] resolveCityId:start", {
-    city: normalizedCity,
-    latitude: input.latitude,
-    longitude: input.longitude,
-  });
-
-  const existingCityResult = await supabase.from("cities").select("id, name").ilike("name", normalizedCity).maybeSingle();
-  console.log("[agency:create] resolveCityId:lookup-response", existingCityResult);
-
-  if (existingCityResult.error) {
-    console.error("[agency:create] resolveCityId:lookup-error", existingCityResult.error);
-    return null;
-  }
-
-  if (existingCityResult.data?.id) {
-    return Number(existingCityResult.data.id);
-  }
-
-  console.warn("[agency:create] resolveCityId:not-found", {
-    city: normalizedCity,
-    message: "No matching city row found. Agency will be inserted with city_id=null.",
-  });
-  return null;
+  return error.message;
 }
 
 async function uploadAgencyImage(file: File, assetType: "logo" | "cover") {
@@ -171,104 +154,6 @@ async function uploadAgencyImage(file: File, assetType: "logo" | "cover") {
   return publicUrl;
 }
 
-async function insertAgencyDirectly(input: AgencyCreateInput): Promise<AgencyCreationResult> {
-  console.warn("[agency:create] Edge Function unavailable, using direct database insert fallback.");
-
-  const userResult = await supabase.auth.getUser();
-  console.log("[agency:create] direct-insert:user-response", {
-    userId: userResult.data.user?.id ?? null,
-    error: userResult.error,
-  });
-
-  if (userResult.error || !userResult.data.user) {
-    throw new Error("Unauthorized access: no authenticated user is available for direct agency creation.");
-  }
-
-  const cityId = await resolveCityId(input);
-    const insertPayload = {
-    owner_user_id: null,
-    email: input.email,
-    name: input.agencyName,
-      city_id: cityId,
-      region: input.region,
-      address: input.address,
-      phone: input.phone,
-      whatsapp: input.whatsapp,
-      description: input.description ?? null,
-    status: input.status,
-    is_blocked: false,
-    is_verified: input.verified,
-    logo_url: input.logo,
-    cover_url: input.coverImage,
-    latitude: input.latitude,
-    longitude: input.longitude,
-  };
-
-  console.log("[agency:create] direct-insert:payload", insertPayload);
-
-  const insertResult = await supabase.from("agencies").insert(insertPayload).select("*").single();
-  console.log("[agency:create] direct-insert:agency-response", insertResult);
-
-  if (insertResult.error || !insertResult.data) {
-    console.error("[agency:create] direct-insert:agency-error", {
-      error: insertResult.error,
-      stack: insertResult.error?.stack,
-    });
-    throw new Error(mapSupabaseErrorToAgencyMessage(insertResult.error));
-  }
-
-  const permissionsResult = await supabase.from("agency_permissions").insert({
-    agency_id: insertResult.data.id,
-  });
-  console.log("[agency:create] direct-insert:permissions-response", permissionsResult);
-
-  if (permissionsResult.error) {
-    console.error("[agency:create] direct-insert:permissions-error", {
-      error: permissionsResult.error,
-      stack: permissionsResult.error.stack,
-    });
-    throw new Error(`Database insertion failed: ${permissionsResult.error.message}`);
-  }
-
-  const auditResult = await supabase.from("admin_audit_logs").insert({
-    owner_id: userResult.data.user.id,
-    action: "create_agency",
-    target_type: "agency",
-    target_id: insertResult.data.id,
-    details: {
-      email: input.email,
-      agency_name: input.agencyName,
-      creation_mode: "direct-database",
-      auth_user_provisioned: false,
-    },
-  });
-  console.log("[agency:create] direct-insert:audit-response", auditResult);
-
-  if (auditResult.error) {
-    console.error("[agency:create] direct-insert:audit-error", {
-      error: auditResult.error,
-      stack: auditResult.error.stack,
-    });
-    throw new Error(`Database insertion failed: ${auditResult.error.message}`);
-  }
-
-  const createdAgency = await supabase.from("owner_agencies_view").select("*").eq("id", insertResult.data.id).single();
-  console.log("[agency:create] direct-insert:view-response", createdAgency);
-
-  if (createdAgency.error || !createdAgency.data) {
-    console.error("[agency:create] direct-insert:view-error", {
-      error: createdAgency.error,
-      stack: createdAgency.error?.stack,
-    });
-    throw new Error("Agency was inserted, but the refreshed agency view could not be loaded.");
-  }
-
-  return {
-    ...mapAgency(createdAgency.data as Record<string, unknown>),
-    creationMode: "direct-database",
-  };
-}
-
 export const agencyService = {
   async listAgencies(cityId?: string) {
     if (!isSupabaseConfigured) {
@@ -310,7 +195,21 @@ export const agencyService = {
     }
 
     try {
-      const data = await invokeSupabaseFunction<AgencyCreateInput, { agencyId: string }>("create-agency-user", input);
+      const { data, error } = await supabase.functions.invoke<{ agencyId: string; userId: string; email: string }>(
+        "create-agency-user",
+        {
+          body: input,
+        },
+      );
+
+      if (error) {
+        throw error;
+      }
+
+      if (!data?.agencyId) {
+        throw new Error("Agency provisioning succeeded but did not return an agency id.");
+      }
+
       const createdAgency = await this.getAgencyById(String(data.agencyId));
 
       if (!createdAgency) {
@@ -327,19 +226,22 @@ export const agencyService = {
         stack: error instanceof Error ? error.stack : null,
       });
 
-      if (
-        error instanceof SupabaseFunctionError &&
-        (error.code === "NOT_FOUND" || error.code === "NETWORK_ERROR")
-      ) {
-        console.warn("[agency:create] edge-function-fallback", {
-          reason: error.code,
+      if (error instanceof FunctionsFetchError || error instanceof FunctionsRelayError) {
+        console.error("[agency:create] edge-function-required", {
+          reason: error.name,
           message: error.message,
           payload: {
             ...input,
             password: `<redacted length=${input.password.length}>`,
           },
         });
-        return insertAgencyDirectly(input);
+        throw new Error(
+          "Agency auth provisioning is unavailable because the Supabase Edge Function \"create-agency-user\" is missing or unreachable. Deploy the function and retry. Direct database fallback has been disabled to prevent orphaned agency accounts.",
+        );
+      }
+
+      if (error instanceof FunctionsHttpError || error instanceof Error) {
+        throw new Error(await getFunctionErrorMessage(error));
       }
 
       throw new Error(mapSupabaseErrorToAgencyMessage(error));

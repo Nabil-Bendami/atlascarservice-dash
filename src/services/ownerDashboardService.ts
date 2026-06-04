@@ -1,5 +1,4 @@
 import { supabase } from "@/lib/supabase";
-import { invokeSupabaseFunction } from "@/lib/supabaseFunctions";
 import type { AgencyCreateInput, CarAvailability, DashboardStats } from "@/types";
 
 export interface OwnerCityStats {
@@ -121,7 +120,16 @@ export const ownerDashboardService = {
       verified: input.verified,
     };
 
-    return invokeSupabaseFunction<typeof payload, { agencyId: string; userId: string; email: string }>("create-agency-user", payload);
+    const { data, error } = await supabase.functions.invoke<{ agencyId: string; userId: string; email: string }>(
+      "create-agency-user",
+      {
+        body: payload,
+      },
+    );
+
+    if (error) throw error;
+    if (!data) throw new Error("Agency provisioning did not return a response payload.");
+    return data;
   },
 
   async getDashboardStats() {

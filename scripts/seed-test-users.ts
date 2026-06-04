@@ -7,22 +7,30 @@ type TestUser = {
   fullName: string;
 };
 
+function requiredEnv(name: string) {
+  const value = process.env[name]?.trim();
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+  return value;
+}
+
 const users: TestUser[] = [
   {
-    email: "owner123@test.com",
-    password: "Owner@123456",
+    email: process.env.SEED_SUPER_OWNER_EMAIL?.trim() || "owner123@test.com",
+    password: requiredEnv("SEED_SUPER_OWNER_PASSWORD"),
     role: "super_owner",
     fullName: "Super Owner",
   },
   {
-    email: "agency123@test.com",
-    password: "Agency@123456",
+    email: process.env.SEED_AGENCY_EMAIL?.trim() || "agency123@test.com",
+    password: requiredEnv("SEED_AGENCY_PASSWORD"),
     role: "agency",
     fullName: "Test Agency",
   },
   {
-    email: "client123@test.com",
-    password: "Client@123456",
+    email: process.env.SEED_CLIENT_EMAIL?.trim() || "client123@test.com",
+    password: requiredEnv("SEED_CLIENT_PASSWORD"),
     role: "client",
     fullName: "Test Client",
   },
@@ -166,7 +174,7 @@ async function main() {
   for (const testUser of users) {
     console.log(`${testUser.fullName}`);
     console.log(`  Email: ${testUser.email}`);
-    console.log(`  Password: ${testUser.password}`);
+    console.log("  Password: [provided via environment]");
     console.log(`  Role: ${testUser.role}`);
   }
 }

@@ -74,9 +74,9 @@ begin
     select *
     from (
       values
-        ('00000000-0000-4000-8000-000000000101'::uuid, 'owner123@test.com', 'Owner@123456', 'super_owner', 'Super Owner'),
-        ('00000000-0000-4000-8000-000000000102'::uuid, 'agency123@test.com', 'Agency@123456', 'agency', 'Test Agency'),
-        ('00000000-0000-4000-8000-000000000103'::uuid, 'client123@test.com', 'Client@123456', 'client', 'Test Client')
+        ('00000000-0000-4000-8000-000000000101'::uuid, 'owner123@test.com', 'CHANGE_ME_SUPER_OWNER_PASSWORD', 'super_owner', 'Super Owner'),
+        ('00000000-0000-4000-8000-000000000102'::uuid, 'agency123@test.com', 'CHANGE_ME_AGENCY_PASSWORD', 'agency', 'Test Agency'),
+        ('00000000-0000-4000-8000-000000000103'::uuid, 'client123@test.com', 'CHANGE_ME_CLIENT_PASSWORD', 'client', 'Test Client')
     ) as seed_users(id, email, password, app_role, full_name)
   loop
     select id
@@ -176,9 +176,9 @@ commit;
 do $$
 begin
   raise notice 'Development test users are ready:';
-  raise notice 'Super Owner: owner123@test.com / Owner@123456 / role super_owner';
-  raise notice 'Agency: agency123@test.com / Agency@123456 / role agency';
-  raise notice 'Client: client123@test.com / Client@123456 / role client';
+  raise notice 'Super Owner: owner123@test.com / CHANGE_ME_SUPER_OWNER_PASSWORD / role super_owner';
+  raise notice 'Agency: agency123@test.com / CHANGE_ME_AGENCY_PASSWORD / role agency';
+  raise notice 'Client: client123@test.com / CHANGE_ME_CLIENT_PASSWORD / role client';
 end;
 $$;
 

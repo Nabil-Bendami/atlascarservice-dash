@@ -5,6 +5,9 @@ import { RoleGuard } from "@/components/auth/RoleGuard";
 import { AppLayout } from "@/layouts/AppLayout";
 
 const LoginPage = lazy(() => import("@/pages/LoginPage").then((module) => ({ default: module.LoginPage })));
+const AgencyDashboardPage = lazy(() =>
+  import("@/pages/AgencyDashboardPage").then((module) => ({ default: module.AgencyDashboardPage })),
+);
 const DashboardPage = lazy(() => import("@/pages/DashboardPage").then((module) => ({ default: module.DashboardPage })));
 const CreateAgencyPage = lazy(() =>
   import("@/pages/CreateAgencyPage").then((module) => ({ default: module.CreateAgencyPage })),
@@ -33,9 +36,10 @@ export function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route element={<ProtectedRoute />}>
+          <Route path="/dashboard/agence" element={<AgencyDashboardPage />} />
           <Route
             element={
-              <RoleGuard>
+              <RoleGuard allowedRoles={["super_owner"]}>
                 <AppLayout />
               </RoleGuard>
             }

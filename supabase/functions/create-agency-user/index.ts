@@ -1,28 +1,35 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
 
-type CreateAgencyPayload = {
-  email: string;
-  password: string;
-  agencyName: string;
-  logo?: string;
-  coverImage?: string;
-  city?: string;
-  cityId?: number | null;
-  region?: string;
-  address?: string;
-  phone?: string;
-  whatsapp?: string;
-  description?: string;
+type AgencyPayload = {
+  name?: string;
+  agencyName?: string;
+  email?: string;
+  password?: string;
+  phone?: string | null;
+  whatsapp?: string | null;
+  city_id?: number | string | null;
+  cityId?: number | string | null;
+  region_id?: number | string | null;
+  regionId?: number | string | null;
+  region?: string | null;
+  address?: string | null;
   latitude?: number | null;
   longitude?: number | null;
-  status?: "active" | "suspended";
-  verified?: boolean;
+  description?: string | null;
+  logo_url?: string | null;
+  logo?: string | null;
+  cover_url?: string | null;
+  coverImage?: string | null;
+  status?: string | null;
+  is_verified?: boolean | null;
+  verified?: boolean | null;
 };
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 function jsonResponse(status: number, body: unknown) {
@@ -35,22 +42,95 @@ function jsonResponse(status: number, body: unknown) {
   });
 }
 
+function normalizeEmail(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function normalizeAgencyName(payload: AgencyPayload) {
+  return (payload.name ?? payload.agencyName ?? "").trim();
+}
+
+function isMissingTableError(error: { code?: string; message?: string } | null | undefined) {
+  const message = error?.message?.toLowerCase() ?? "";
+  return error?.code === "PGRST205" || message.includes("could not find the table");
+}
+
+function isMissingColumnError(error: { code?: string; message?: string } | null | undefined) {
+  const message = error?.message?.toLowerCase() ?? "";
+  return error?.code === "PGRST204" || message.includes("column") || message.includes("schema cache");
+}
+
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-function validatePayload(payload: Partial<CreateAgencyPayload>) {
-  if (!payload.email || !isValidEmail(payload.email)) {
+function validatePayload(payload: AgencyPayload) {
+  const name = normalizeAgencyName(payload);
+  const email = payload.email ? normalizeEmail(payload.email) : "";
+  const password = payload.password ?? "";
+
+  if (!name) {
+    throw new Error("Agency name is required.");
+  }
+
+  if (!email || !isValidEmail(email)) {
     throw new Error("A valid email is required.");
   }
 
-  if (!payload.password || payload.password.length < 8) {
-    throw new Error("Password must be at least 8 characters.");
+  if (!password) {
+    throw new Error("Password is required.");
+  }
+}
+
+function asNullableString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function asNullableNumber(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function asNullableBoolean(value: unknown) {
+  return typeof value === "boolean" ? value : null;
+}
+
+async function tableExists(adminClient: ReturnType<typeof createClient>, tableName: string) {
+  const { error } = await adminClient.from(tableName).select("*").limit(1);
+  return !isMissingTableError(error);
+}
+
+async function columnExists(adminClient: ReturnType<typeof createClient>, tableName: string, columnName: string) {
+  const { error } = await adminClient.from(tableName).select(columnName).limit(1);
+  if (!error) return true;
+  if (isMissingTableError(error) || isMissingColumnError(error)) return false;
+  throw error;
+}
+
+async function resolveOwnerRole(adminClient: ReturnType<typeof createClient>, ownerId: string) {
+  const profilesExists = await tableExists(adminClient, "profiles");
+  if (profilesExists) {
+    const profileResult = await adminClient.from("profiles").select("role").eq("id", ownerId).maybeSingle();
+    if (profileResult.error && !isMissingTableError(profileResult.error) && !isMissingColumnError(profileResult.error)) {
+      throw profileResult.error;
+    }
+    if (profileResult.data?.role) return String(profileResult.data.role);
   }
 
-  if (!payload.agencyName || payload.agencyName.trim().length < 2) {
-    throw new Error("Agency name is required.");
+  const usersExists = await tableExists(adminClient, "users");
+  if (usersExists) {
+    const userResult = await adminClient.from("users").select("role").eq("id", ownerId).maybeSingle();
+    if (userResult.error && !isMissingTableError(userResult.error) && !isMissingColumnError(userResult.error)) {
+      throw userResult.error;
+    }
+    if (userResult.data?.role) return String(userResult.data.role);
   }
+
+  return null;
 }
 
 serve(async (request) => {
@@ -58,240 +138,228 @@ serve(async (request) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  if (request.method !== "POST") {
+    return jsonResponse(405, { error: "Method not allowed." });
+  }
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    return jsonResponse(500, {
+      error: "Missing required Supabase secrets.",
+      required: ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"],
+    });
+  }
+
+  const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+
+  let createdUserId: string | null = null;
+  let createdAgencyId: string | null = null;
+  let createdPermissions = false;
+
   try {
-    console.log("[create-agency-user] request:start", {
-      method: request.method,
-      url: request.url,
-      hasAuthorization: Boolean(request.headers.get("Authorization")),
-    });
+    const authHeader = request.headers.get("Authorization") ?? "";
+    const accessToken = authHeader.startsWith("Bearer ") ? authHeader.slice("Bearer ".length).trim() : "";
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!accessToken) {
+      return jsonResponse(401, { error: "Missing Authorization bearer token." });
+    }
 
-    if (!supabaseUrl || !anonKey || !serviceRoleKey) {
-      console.error("[create-agency-user] missing-env", {
-        hasSupabaseUrl: Boolean(supabaseUrl),
-        hasAnonKey: Boolean(anonKey),
-        hasServiceRoleKey: Boolean(serviceRoleKey),
+    const { data: ownerAuth, error: ownerAuthError } = await supabaseAdmin.auth.getUser(accessToken);
+    if (ownerAuthError || !ownerAuth.user) {
+      return jsonResponse(401, {
+        error: "Unauthorized.",
+        details: ownerAuthError?.message ?? "Unable to resolve the calling user.",
       });
-      return jsonResponse(500, { error: "Missing Supabase environment variables." });
     }
 
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: {
-        headers: {
-          Authorization: request.headers.get("Authorization") ?? "",
-        },
-      },
-    });
-
-    const adminClient = createClient(supabaseUrl, serviceRoleKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    });
-
-    const { data: authData, error: authError } = await userClient.auth.getUser();
-    if (authError || !authData.user) {
-      console.error("[create-agency-user] auth:getUser failed", {
-        authError,
-        hasUser: Boolean(authData?.user),
-      });
-      return jsonResponse(401, { error: "Unauthorized." });
-    }
-
-    const ownerId = authData.user.id;
-    let ownerRole: string | null = null;
-
-    const profileQuery = await adminClient.from("profiles").select("role").eq("id", ownerId).maybeSingle();
-    if (!profileQuery.error) {
-      ownerRole = (profileQuery.data?.role as string | undefined) ?? ownerRole;
-    }
-
-    if (!ownerRole) {
-      const userQuery = await adminClient.from("users").select("role").eq("id", ownerId).maybeSingle();
-      if (!userQuery.error) {
-        ownerRole = (userQuery.data?.role as string | undefined) ?? ownerRole;
-      }
-    }
-
+    const ownerRole = await resolveOwnerRole(supabaseAdmin, ownerAuth.user.id);
     if (ownerRole !== "super_owner") {
-      console.error("[create-agency-user] role-check failed", {
-        ownerId,
-        ownerRole,
+      return jsonResponse(403, {
+        error: "Only super owners can create agency users.",
+        details: {
+          ownerId: ownerAuth.user.id,
+          ownerRole,
+        },
       });
-      return jsonResponse(403, { error: "Only super owners can create agency users." });
     }
 
-    const payload = (await request.json()) as Partial<CreateAgencyPayload>;
-    console.log("[create-agency-user] payload", {
-      ...payload,
-      password: payload.password ? `<redacted length=${payload.password.length}>` : undefined,
-    });
+    const payload = (await request.json()) as AgencyPayload;
     validatePayload(payload);
 
-    let createdAuthUserId: string | null = null;
-    let createdAgencyId: string | null = null;
+    const agencyName = normalizeAgencyName(payload);
+    const email = normalizeEmail(payload.email!);
+    const password = payload.password!;
+    const phone = asNullableString(payload.phone);
+    const whatsapp = asNullableString(payload.whatsapp);
+    const cityId = asNullableNumber(payload.city_id ?? payload.cityId);
+    const regionId = asNullableNumber(payload.region_id ?? payload.regionId);
+    const region = asNullableString(payload.region);
+    const address = asNullableString(payload.address);
+    const latitude = asNullableNumber(payload.latitude);
+    const longitude = asNullableNumber(payload.longitude);
+    const description = asNullableString(payload.description);
+    const logoUrl = asNullableString(payload.logo_url ?? payload.logo);
+    const coverUrl = asNullableString(payload.cover_url ?? payload.coverImage);
+    const status = asNullableString(payload.status) ?? "active";
+    const isVerified = asNullableBoolean(payload.is_verified ?? payload.verified) ?? true;
 
-    const { data: createdAuth, error: createAuthError } = await adminClient.auth.admin.createUser({
-      email: payload.email!,
-      password: payload.password!,
+    const createUserResult = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
       email_confirm: true,
       user_metadata: {
         role: "agency",
-        agency_name: payload.agencyName,
       },
     });
 
-    if (createAuthError || !createdAuth.user) {
-      console.error("[create-agency-user] auth.admin.createUser failed", createAuthError);
-      const duplicate = createAuthError?.message?.toLowerCase().includes("already");
-      return jsonResponse(duplicate ? 409 : 400, {
-        error: duplicate ? "An account already exists for this email." : createAuthError?.message ?? "Unable to create auth user.",
+    if (createUserResult.error || !createUserResult.data.user) {
+      return jsonResponse(400, {
+        error: "Unable to create auth user.",
+        details: createUserResult.error?.message ?? null,
       });
     }
 
-    createdAuthUserId = createdAuth.user.id;
+    createdUserId = createUserResult.data.user.id;
 
-    const agencyInsertPayload = {
-      owner_user_id: createdAuthUserId,
-      email: payload.email,
-      name: payload.agencyName,
-      logo_url: payload.logo ?? null,
-      cover_url: payload.coverImage ?? null,
-      city_id: payload.cityId ?? null,
-      region: payload.region ?? null,
-      address: payload.address ?? null,
-      phone: payload.phone ?? null,
-      whatsapp: payload.whatsapp ?? null,
-      description: payload.description ?? null,
-      latitude: payload.latitude ?? null,
-      longitude: payload.longitude ?? null,
-      status: payload.status ?? "active",
-      is_blocked: false,
-      is_verified: payload.verified ?? false,
+    const hasAgencyRegionId = await columnExists(supabaseAdmin, "agencies", "region_id");
+    const hasAgencyRegion = await columnExists(supabaseAdmin, "agencies", "region");
+
+    const agencyInsertPayload: Record<string, unknown> = {
+      owner_user_id: createdUserId,
+      name: agencyName,
+      email,
+      phone,
+      whatsapp,
+      city_id: cityId,
+      address,
+      latitude,
+      longitude,
+      description,
+      logo_url: logoUrl,
+      cover_url: coverUrl,
+      status,
+      is_verified: isVerified,
     };
 
-    const { data: agencyInsert, error: insertAgencyError } = await adminClient
+    if (hasAgencyRegionId) {
+      agencyInsertPayload.region_id = regionId;
+    }
+
+    if (hasAgencyRegion) {
+      agencyInsertPayload.region = region;
+    }
+
+    const agencyInsertResult = await supabaseAdmin
       .from("agencies")
       .insert(agencyInsertPayload)
       .select("id")
       .single();
 
-    console.log("[create-agency-user] agencies.insert response", {
-      agencyInsert,
-      insertAgencyError,
-    });
-
-    if (insertAgencyError || !agencyInsert) {
-      throw insertAgencyError ?? new Error("Agency insert failed.");
+    if (agencyInsertResult.error || !agencyInsertResult.data?.id) {
+      throw new Error(agencyInsertResult.error?.message ?? "Unable to create agency row.");
     }
 
-    createdAgencyId = agencyInsert.id as string;
+    createdAgencyId = String(agencyInsertResult.data.id);
 
-    const { error: syncIdentityError } = await adminClient.rpc("sync_identity_role", {
-      target_user_id: createdAuthUserId,
-      target_email: payload.email,
-      target_role: "agency",
-      target_agency_id: createdAgencyId,
-    });
-
-    console.log("[create-agency-user] sync_identity_role response", {
-      createdAgencyId,
-      createdAuthUserId,
-      syncIdentityError,
-    });
-
-    if (syncIdentityError) {
-      throw syncIdentityError;
-    }
-
-    const { error: permissionsError } = await adminClient.from("agency_permissions").insert({
-      agency_id: createdAgencyId,
-    });
-
-    console.log("[create-agency-user] agency_permissions.insert response", {
-      createdAgencyId,
-      permissionsError,
-    });
-
-    if (permissionsError) {
-      throw permissionsError;
-    }
-
-    const { error: auditError } = await adminClient.from("admin_audit_logs").insert({
-      owner_id: ownerId,
-      action: "create_agency_user",
-      target_type: "agency",
-      target_id: createdAgencyId,
-      details: {
-        created_user_id: createdAuthUserId,
-        email: payload.email,
-        agency_name: payload.agencyName,
+    const metadataUpdate = await supabaseAdmin.auth.admin.updateUserById(createdUserId, {
+      user_metadata: {
+        role: "agency",
+        agency_id: createdAgencyId,
       },
-      ip_address: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
     });
 
-    console.log("[create-agency-user] admin_audit_logs.insert response", {
-      createdAgencyId,
-      auditError,
-    });
-
-    if (auditError) {
-      throw auditError;
+    if (metadataUpdate.error) {
+      throw new Error(metadataUpdate.error.message);
     }
 
-    console.log("[create-agency-user] request:success", {
-      createdAgencyId,
-      createdAuthUserId,
-      email: payload.email,
-    });
+    const profilesExists = await tableExists(supabaseAdmin, "profiles");
+    if (profilesExists) {
+      const hasProfilesFullName = await columnExists(supabaseAdmin, "profiles", "full_name");
+      const profilePayload: Record<string, unknown> = {
+        id: createdUserId,
+        email,
+        role: "agency",
+        agency_id: createdAgencyId,
+      };
+
+      if (hasProfilesFullName) {
+        profilePayload.full_name = agencyName;
+      }
+
+      const profilesUpsert = await supabaseAdmin.from("profiles").upsert(profilePayload, { onConflict: "id" });
+      if (profilesUpsert.error) {
+        throw new Error(`Unable to create/update public.profiles: ${profilesUpsert.error.message}`);
+      }
+    }
+
+    const usersExists = await tableExists(supabaseAdmin, "users");
+    if (usersExists) {
+      const usersUpsert = await supabaseAdmin.from("users").upsert(
+        {
+          id: createdUserId,
+          email,
+          role: "agency",
+          agency_id: createdAgencyId,
+        },
+        { onConflict: "id" },
+      );
+
+      if (usersUpsert.error) {
+        throw new Error(`Unable to create/update public.users: ${usersUpsert.error.message}`);
+      }
+    }
+
+    const agencyPermissionsExists = await tableExists(supabaseAdmin, "agency_permissions");
+    if (agencyPermissionsExists) {
+      const agencyPermissionsUpsert = await supabaseAdmin.from("agency_permissions").upsert(
+        {
+          agency_id: createdAgencyId,
+        },
+        { onConflict: "agency_id" },
+      );
+
+      if (agencyPermissionsUpsert.error) {
+        throw new Error(`Unable to create/update agency_permissions: ${agencyPermissionsUpsert.error.message}`);
+      }
+
+      createdPermissions = true;
+    }
 
     return jsonResponse(200, {
+      userId: createdUserId,
       agencyId: createdAgencyId,
-      userId: createdAuthUserId,
-      email: payload.email,
+      email,
     });
   } catch (error) {
-    console.error("[create-agency-user] request:failure", {
-      error,
-      stack: error instanceof Error ? error.stack : null,
-    });
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const message = error instanceof Error ? error.message : "Unexpected error.";
 
-    if (supabaseUrl && serviceRoleKey) {
-      const adminClient = createClient(supabaseUrl, serviceRoleKey, {
-        auth: { autoRefreshToken: false, persistSession: false },
-      });
+    if (createdPermissions && createdAgencyId) {
+      await supabaseAdmin.from("agency_permissions").delete().eq("agency_id", createdAgencyId);
+    }
 
-      const details = error instanceof Error ? error.message : "Unknown error";
-      const requestBody = await request.text().then((text) => (text ? JSON.parse(text) : null)).catch(() => null);
-      const email = requestBody?.email as string | undefined;
+    if (createdAgencyId) {
+      await supabaseAdmin.from("agencies").delete().eq("id", createdAgencyId);
+    }
 
-      if (email) {
-        const existingAgency = await adminClient.from("agencies").select("id").eq("email", email).maybeSingle();
-        if (!existingAgency.error && existingAgency.data?.id) {
-          await adminClient.from("agency_permissions").delete().eq("agency_id", existingAgency.data.id);
-          await adminClient.from("agencies").delete().eq("id", existingAgency.data.id);
-        }
-      }
-
-      if (email) {
-        const listUsers = await adminClient.auth.admin.listUsers();
-        const matchedUser = listUsers.data.users.find((user) => user.email?.toLowerCase() === email.toLowerCase());
-        if (matchedUser) {
-          await adminClient.auth.admin.deleteUser(matchedUser.id);
-        }
-      }
-
-      return jsonResponse(400, { error: details });
+    if (createdUserId) {
+      await supabaseAdmin.from("profiles").delete().eq("id", createdUserId);
+      await supabaseAdmin.from("users").delete().eq("id", createdUserId);
+      await supabaseAdmin.auth.admin.deleteUser(createdUserId);
     }
 
     return jsonResponse(400, {
-      error: error instanceof Error ? error.message : "Unexpected error.",
+      error: message,
+      details: {
+        createdUserId,
+        createdAgencyId,
+      },
     });
   }
 });

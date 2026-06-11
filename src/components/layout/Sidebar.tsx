@@ -1,9 +1,10 @@
-import { Building2, Car, Gauge, Globe2, MapPinned, PlusSquare, Settings, ShieldCheck } from "lucide-react";
+import { Building2, CalendarCheck, Car, Gauge, Globe2, MapPinned, PlusSquare, Settings, ShieldCheck } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 const links = [
   { to: "/dashboard", label: "Dashboard", icon: Gauge },
+  { to: "/dashboard/reservations", label: "Reservations", icon: CalendarCheck },
   { to: "/traffic", label: "Traffic", icon: Globe2 },
   { to: "/cities", label: "Cities", icon: MapPinned },
   { to: "/agencies", label: "Agencies", icon: Building2 },
@@ -29,6 +30,7 @@ export function Sidebar() {
           <NavLink
             key={link.to}
             to={link.to}
+            end={link.to === "/dashboard"}
             className={({ isActive }) =>
               cn(
                 "flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-900",

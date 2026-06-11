@@ -320,10 +320,52 @@ export const agencyService = {
 
     const { data, error } = await supabase
       .from("reservations")
-      .select("*")
+      .select("*, cars(*)")
       .eq("agency_id", agencyId)
-      .order("start_date", { ascending: false });
-    if (error) throw error;
-    return data as ReservationHistoryItem[];
+      .eq("status", "verified")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("AGENCY_RESERVATIONS_FETCH_ERROR", {
+        agencyId,
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+      });
+      throw error;
+    }
+
+    console.log("AGENCY_RESERVATIONS_FETCH_RESPONSE", {
+      agencyId,
+      count: data?.length ?? 0,
+      rows: data ?? [],
+    });
+
+    return (data ?? []).map((row) => {
+      const record = row as Record<string, any>;
+      const car = record.cars as Record<string, unknown> | null;
+      const startDate = String(record.start_date ?? "");
+      const endDate = String(record.end_date ?? "");
+      const days =
+        Number(record.total_days ?? 0) ||
+        Math.max(1, Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / 86_400_000));
+      const fallbackCarName = [car?.brand, car?.model].filter(Boolean).join(" ") || String(record.car_id ?? "");
+      const carName = String(car?.name ?? fallbackCarName);
+
+      return {
+        id: String(record.id),
+        customerName: String(record.client_name ?? "Client"),
+        customerPhone: String(record.client_phone ?? ""),
+        city: String(record.city ?? ""),
+        carName,
+        startDate,
+        endDate,
+        days,
+        total: Number(record.total_price ?? record.total_amount ?? 0),
+        status: "verified",
+        message: String(record.message ?? ""),
+      } satisfies ReservationHistoryItem;
+    });
   },
 };

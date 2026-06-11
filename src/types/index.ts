@@ -125,11 +125,15 @@ export interface Car {
 export interface ReservationHistoryItem {
   id: string;
   customerName: string;
+  customerPhone?: string;
+  city?: string;
+  carName?: string;
   startDate: string;
   endDate: string;
   days: number;
   total: number;
-  status: "confirmed" | "completed" | "cancelled";
+  status: "pending" | "verified" | "confirmed" | "completed" | "cancelled" | "rejected";
+  message?: string;
 }
 
 export interface TrafficMetric {

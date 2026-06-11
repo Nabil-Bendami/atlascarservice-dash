@@ -1,10 +1,11 @@
-import { Building2, Car, Gauge, LogOut, MapPinned, Map, ShieldCheck } from "lucide-react";
+import { Building2, CalendarCheck, Car, Gauge, LogOut, MapPinned, Map, ShieldCheck } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { authService } from "@/services/authService";
 import { cn } from "@/lib/utils";
 
 const links = [
   { to: "/dashboard", label: "Dashboard", icon: Gauge },
+  { to: "/dashboard/reservations", label: "Reservations", icon: CalendarCheck },
   { to: "/agencies/create", label: "Add Agency", icon: ShieldCheck },
   { to: "/cities", label: "Cities", icon: MapPinned },
   { to: "/cars", label: "Cars", icon: Car },
@@ -28,6 +29,7 @@ export function OwnerSidebar() {
           <NavLink
             key={link.to}
             to={link.to}
+            end={link.to === "/dashboard"}
             className={({ isActive }) =>
               cn(
                 "flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-white/8",

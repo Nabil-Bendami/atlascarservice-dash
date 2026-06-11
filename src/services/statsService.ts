@@ -1,5 +1,6 @@
 import { mockCharts, mockDashboardStats } from "@/data/mock-data";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import { reservationService } from "@/services/reservationService";
 import type { ChartDatum, DashboardStats } from "@/types";
 
 export const statsService = {
@@ -10,7 +11,12 @@ export const statsService = {
 
     const { data, error } = await supabase.rpc("get_owner_dashboard_stats");
     if (error) throw error;
-    return data as DashboardStats;
+
+    const reservationsCount = await reservationService.getReservationsCount();
+    return {
+      ...(data as DashboardStats),
+      totalReservations: reservationsCount,
+    };
   },
 
   async getReservationsByMonth() {

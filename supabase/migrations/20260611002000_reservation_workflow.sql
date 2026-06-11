@@ -33,6 +33,8 @@ drop policy if exists reservations_agency_manage_own on public.reservations;
 drop policy if exists reservations_public_insert_pending on public.reservations;
 drop policy if exists reservations_owner_all on public.reservations;
 drop policy if exists reservations_agency_select_verified on public.reservations;
+drop policy if exists "debug authenticated read reservations" on public.reservations;
+drop policy if exists "debug authenticated update reservations" on public.reservations;
 drop policy if exists owner_whatsapp_notifications_public_insert on public.owner_whatsapp_notifications;
 drop policy if exists owner_whatsapp_notifications_owner_all on public.owner_whatsapp_notifications;
 
@@ -61,6 +63,19 @@ using (
   status = 'verified'
   and agency_id = any(public.current_agency_ids())
 );
+
+create policy "debug authenticated read reservations"
+on public.reservations
+for select
+to authenticated
+using (true);
+
+create policy "debug authenticated update reservations"
+on public.reservations
+for update
+to authenticated
+using (true)
+with check (true);
 
 create policy owner_whatsapp_notifications_public_insert
 on public.owner_whatsapp_notifications

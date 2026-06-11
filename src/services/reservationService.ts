@@ -5,7 +5,9 @@ export type OwnerReservationStatus = "pending" | "verified" | "rejected" | strin
 interface ReservationRow {
   id: string;
   agency_id: string | null;
+  agencyId?: string | null;
   car_id: string | null;
+  carId?: string | null;
   client_name?: string | null;
   client_phone?: string | null;
   client_email?: string | null;
@@ -25,22 +27,17 @@ interface ReservationRow {
 interface CarRow {
   id: string;
   brand?: string | null;
+  image_url?: string | null;
   model?: string | null;
   name?: string | null;
-  price_per_day?: number | null;
-}
-
-interface CarImageRow {
-  car_id: string;
-  image_url: string | null;
-  sort_order?: number | null;
+  agency_id?: string | null;
 }
 
 interface AgencyRow {
   id: string;
   name?: string | null;
   city?: string | null;
-  city_name?: string | null;
+  phone?: string | null;
 }
 
 export interface OwnerReservation {
@@ -70,10 +67,6 @@ export type OwnerReservationFilter = "all" | "pending" | "verified" | "rejected"
 
 const emptyValue = "Not provided";
 
-function uniqueIds(values: Array<string | null | undefined>) {
-  return Array.from(new Set(values.filter((value): value is string => Boolean(value))));
-}
-
 function getDateDiffInDays(startDate: string | null, endDate: string | null) {
   if (!startDate || !endDate) return 0;
 
@@ -86,7 +79,9 @@ function getDateDiffInDays(startDate: string | null, endDate: string | null) {
 }
 
 function mapReservation(row: ReservationRow, car: CarRow | null, agency: AgencyRow | null, carImage: string | null): OwnerReservation {
-  const carName = car?.name || [car?.brand, car?.model].filter(Boolean).join(" ").trim() || "Unknown car";
+  const reservationCarId = row.car_id || row.carId || null;
+  const reservationAgencyId = row.agency_id || row.agencyId || null;
+  const carName = car?.name || car?.model || car?.brand || "Unknown car";
   const totalPrice = Number(row.total_price ?? row.total_amount ?? 0);
 
   return {
@@ -94,13 +89,13 @@ function mapReservation(row: ReservationRow, car: CarRow | null, agency: AgencyR
     clientName: row.client_name || emptyValue,
     clientPhone: row.client_phone || emptyValue,
     clientEmail: row.client_email || emptyValue,
-    city: row.city || agency?.city_name || agency?.city || emptyValue,
-    carId: row.car_id,
+    city: row.city || agency?.city || emptyValue,
+    carId: reservationCarId,
     carName,
     carImage,
-    agencyId: row.agency_id,
+    agencyId: reservationAgencyId,
     agencyName: agency?.name || "Unknown agency",
-    agencyCity: agency?.city_name || agency?.city || emptyValue,
+    agencyCity: agency?.city || emptyValue,
     startDate: row.start_date,
     endDate: row.end_date,
     totalDays: Number(row.total_days ?? getDateDiffInDays(row.start_date, row.end_date)),
@@ -113,6 +108,50 @@ function mapReservation(row: ReservationRow, car: CarRow | null, agency: AgencyR
   };
 }
 
+async function fetchCarsForReservations(carIds: string[]) {
+  if (!carIds.length) return [] as CarRow[];
+
+  const result = await supabase
+    .from("cars")
+    .select("id, name, brand, model, image_url, agency_id")
+    .in("id", carIds);
+
+  if (!result.error) return (result.data ?? []) as CarRow[];
+
+  const message = result.error.message.toLowerCase();
+  if (!message.includes("image_url")) throw result.error;
+
+  const fallback = await supabase
+    .from("cars")
+    .select("id, name, brand, model, agency_id")
+    .in("id", carIds);
+
+  if (fallback.error) throw fallback.error;
+  return (fallback.data ?? []) as CarRow[];
+}
+
+async function fetchAgenciesForReservations(agencyIds: string[]) {
+  if (!agencyIds.length) return [] as AgencyRow[];
+
+  const result = await supabase
+    .from("agencies")
+    .select("id, name, city, phone")
+    .in("id", agencyIds);
+
+  if (!result.error) return (result.data ?? []) as AgencyRow[];
+
+  const message = result.error.message.toLowerCase();
+  if (!message.includes("city")) throw result.error;
+
+  const fallback = await supabase
+    .from("agencies")
+    .select("id, name, phone")
+    .in("id", agencyIds);
+
+  if (fallback.error) throw fallback.error;
+  return (fallback.data ?? []) as AgencyRow[];
+}
+
 export const reservationService = {
   async listOwnerReservations() {
     if (!isSupabaseConfigured) {
@@ -122,58 +161,58 @@ export const reservationService = {
     const { data, error } = await supabase
       .from("reservations")
       .select("*")
-      .in("status", ["pending", "verified", "rejected"])
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("OWNER_RESERVATIONS_FETCH_ERROR", {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-      });
+      console.error("OWNER_RESERVATIONS_FETCH_ERROR_FULL", JSON.stringify(error, null, 2));
       throw error;
     }
 
-    console.log("OWNER_RESERVATIONS_FETCH_RESPONSE", {
-      count: data?.length ?? 0,
-      rows: data ?? [],
-    });
+    console.log("OWNER_RESERVATIONS_DATA", data);
 
     const reservations = (data ?? []) as ReservationRow[];
-    const carIds = uniqueIds(reservations.map((reservation) => reservation.car_id));
-    const agencyIds = uniqueIds(reservations.map((reservation) => reservation.agency_id));
+    console.log("RESERVATIONS_RAW", reservations);
 
-    const [carsResult, agenciesResult, imagesResult] = await Promise.all([
-      carIds.length ? supabase.from("cars").select("*").in("id", carIds) : Promise.resolve({ data: [], error: null }),
-      agencyIds.length ? supabase.from("agencies").select("*").in("id", agencyIds) : Promise.resolve({ data: [], error: null }),
-      carIds.length
-        ? supabase.from("car_images").select("*").in("car_id", carIds).order("sort_order", { ascending: true })
-        : Promise.resolve({ data: [], error: null }),
+    const carIds = Array.from(new Set(reservations.map((reservation) => reservation.car_id).filter(Boolean))) as string[];
+    const agencyIds = Array.from(new Set(reservations.map((reservation) => reservation.agency_id).filter(Boolean))) as string[];
+    const [cars, agencies] = await Promise.all([
+      fetchCarsForReservations(carIds).catch((lookupError) => {
+        console.warn("CARS_LOOKUP_FAILED", lookupError);
+        return [] as CarRow[];
+      }),
+      fetchAgenciesForReservations(agencyIds).catch((lookupError) => {
+        console.warn("AGENCIES_LOOKUP_FAILED", lookupError);
+        return [] as AgencyRow[];
+      }),
     ]);
 
-    if (carsResult.error) throw carsResult.error;
-    if (agenciesResult.error) throw agenciesResult.error;
-    if (imagesResult.error) throw imagesResult.error;
+    console.log("CARS_RAW", cars);
+    console.log("AGENCIES_RAW", agencies);
 
-    const carsById = new Map(((carsResult.data ?? []) as CarRow[]).map((car) => [car.id, car]));
-    const agenciesById = new Map(((agenciesResult.data ?? []) as AgencyRow[]).map((agency) => [agency.id, agency]));
-    const imagesByCarId = new Map<string, string>();
+    const mappedReservations = reservations.map((reservation) => {
+      const reservationCarId = reservation.car_id || reservation.carId || null;
+      const reservationAgencyId = reservation.agency_id || reservation.agencyId || null;
+      const car = cars.find((candidate) => candidate.id === reservationCarId) ?? null;
+      const agency = agencies.find((candidate) => candidate.id === reservationAgencyId) ?? null;
 
-    ((imagesResult.data ?? []) as CarImageRow[]).forEach((image) => {
-      if (image.car_id && image.image_url && !imagesByCarId.has(image.car_id)) {
-        imagesByCarId.set(image.car_id, image.image_url);
+      console.log("RESERVATION_MAPPING_DEBUG", {
+        reservationId: reservation.id,
+        reservationCarId,
+        reservationAgencyId,
+        foundCar: car,
+        foundAgency: agency,
+      });
+
+      if (!car || !agency) {
+        console.warn("Missing car/agency for reservation", reservation);
       }
+
+      return mapReservation(reservation, car, agency, car?.image_url ?? null);
     });
 
-    return reservations.map((reservation) =>
-      mapReservation(
-        reservation,
-        reservation.car_id ? carsById.get(reservation.car_id) ?? null : null,
-        reservation.agency_id ? agenciesById.get(reservation.agency_id) ?? null : null,
-        reservation.car_id ? imagesByCarId.get(reservation.car_id) ?? null : null,
-      ),
-    );
+    console.log("RESERVATIONS_MAPPED", mappedReservations);
+
+    return mappedReservations;
   },
 
   async getReservationsCount() {

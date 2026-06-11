@@ -32,6 +32,9 @@ const TrafficDetailsPage = lazy(() =>
   import("@/pages/TrafficDetailsPage").then((module) => ({ default: module.TrafficDetailsPage })),
 );
 const SettingsPage = lazy(() => import("@/pages/SettingsPage").then((module) => ({ default: module.SettingsPage })));
+const SupabaseDebugPage = lazy(() =>
+  import("@/pages/SupabaseDebugPage").then((module) => ({ default: module.SupabaseDebugPage })),
+);
 
 export function App() {
   return (
@@ -59,6 +62,7 @@ export function App() {
             <Route path="/traffic" element={<TrafficPage />} />
             <Route path="/traffic/:cityId" element={<TrafficDetailsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/debug/supabase" element={<SupabaseDebugPage />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

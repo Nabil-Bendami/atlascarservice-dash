@@ -49,14 +49,15 @@ export function OwnerReservationsPage() {
     return reservations.filter((reservation) => reservation.status === activeFilter);
   }, [activeFilter, reservations]);
 
+  const hasQueryError = Boolean(reservationsQuery.error);
   const counts = useMemo(
     () => ({
-      all: reservations.length,
-      pending: reservations.filter((reservation) => reservation.status === "pending").length,
-      verified: reservations.filter((reservation) => reservation.status === "verified").length,
-      rejected: reservations.filter((reservation) => reservation.status === "rejected").length,
+      all: hasQueryError ? null : reservations.length,
+      pending: hasQueryError ? null : reservations.filter((reservation) => reservation.status === "pending").length,
+      verified: hasQueryError ? null : reservations.filter((reservation) => reservation.status === "verified").length,
+      rejected: hasQueryError ? null : reservations.filter((reservation) => reservation.status === "rejected").length,
     }),
-    [reservations],
+    [hasQueryError, reservations],
   );
 
   async function updateReservation(reservation: OwnerReservation, action: "verify" | "reject") {
@@ -155,7 +156,15 @@ export function OwnerReservationsPage() {
   );
 }
 
-function ReservationMetric({ label, value, tone = "all" }: { label: string; value: number; tone?: "all" | "pending" | "verified" | "rejected" }) {
+function ReservationMetric({
+  label,
+  value,
+  tone = "all",
+}: {
+  label: string;
+  value: number | null;
+  tone?: "all" | "pending" | "verified" | "rejected";
+}) {
   const toneClasses = {
     all: "bg-primary/10 text-primary",
     pending: "bg-amber-50 text-amber-600",
@@ -168,7 +177,7 @@ function ReservationMetric({ label, value, tone = "all" }: { label: string; valu
       <CardContent className="flex items-center justify-between gap-4 p-5">
         <div>
           <p className="text-sm font-medium text-muted-foreground">{label}</p>
-          <p className="mt-2 text-3xl font-extrabold text-slate-900">{formatNumber(value)}</p>
+          <p className="mt-2 text-3xl font-extrabold text-slate-900">{value === null ? "—" : formatNumber(value)}</p>
         </div>
         <div className={`rounded-2xl p-3 ${toneClasses}`}>
           <CalendarCheck className="h-5 w-5" />

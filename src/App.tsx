@@ -15,6 +15,7 @@ const OwnerReservationsPage = lazy(() =>
 const NotificationsPage = lazy(() =>
   import("@/pages/NotificationsPage").then((module) => ({ default: module.NotificationsPage })),
 );
+const ReviewsPage = lazy(() => import("@/pages/ReviewsPage").then((module) => ({ default: module.ReviewsPage })));
 const CreateAgencyPage = lazy(() =>
   import("@/pages/CreateAgencyPage").then((module) => ({ default: module.CreateAgencyPage })),
 );
@@ -56,6 +57,7 @@ export function App() {
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/dashboard/reservations" element={<OwnerReservationsPage />} />
             <Route path="/dashboard/notifications" element={<NotificationsPage />} />
+            <Route path="/dashboard/reviews" element={<ReviewsPage />} />
             <Route path="/agencies" element={<AgenciesPage />} />
             <Route path="/agencies/create" element={<CreateAgencyPage />} />
             <Route path="/cities" element={<CitiesPage />} />

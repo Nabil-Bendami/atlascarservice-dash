@@ -53,6 +53,17 @@ export interface ContactMessage {
   createdAt: string;
 }
 
+export interface OwnerReview {
+  id: string;
+  rating: number;
+  comment: string;
+  targetType: "general" | "agency" | string;
+  agencyId: string | null;
+  agencyName: string | null;
+  status: "pending" | "published" | "rejected" | "deleted" | string;
+  createdAt: string;
+}
+
 export interface DashboardStats {
   totalAgencies: number;
   totalCars: number;

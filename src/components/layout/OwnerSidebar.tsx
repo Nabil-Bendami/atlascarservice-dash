@@ -1,4 +1,4 @@
-import { Bell, Building2, CalendarCheck, Car, Gauge, LogOut, MapPinned, Map, ShieldCheck, Star } from "lucide-react";
+import { Bell, Building2, Bug, CalendarCheck, Car, Gauge, LogOut, MapPinned, Map, ShieldCheck, Star } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { authService } from "@/services/authService";
 import { cn } from "@/lib/utils";
@@ -12,6 +12,7 @@ const links = [
   { to: "/cities", label: "Cities", icon: MapPinned },
   { to: "/cars", label: "Cars", icon: Car },
   { to: "/traffic", label: "Traffic", icon: Map },
+  { to: "/dashboard/traffic-debug", label: "Traffic Debug", icon: Bug },
   { to: "/cities/casablanca", label: "Agencies", icon: Building2 },
 ];
 

@@ -165,6 +165,7 @@ export interface TrafficMetric {
   latitude: number;
   longitude: number;
   visitors: number;
+  uniqueVisitors?: number;
   searches: number;
   carViews: number;
   whatsappClicks: number;

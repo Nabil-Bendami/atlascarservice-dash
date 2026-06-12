@@ -1,4 +1,5 @@
-import { Bell, Search } from "lucide-react";
+import { Search } from "lucide-react";
+import { NotificationButton } from "@/components/layout/NotificationButton";
 import { Input } from "@/components/ui/input";
 
 export function OwnerTopbar() {
@@ -14,9 +15,7 @@ export function OwnerTopbar() {
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input className="pl-10" placeholder="Search agencies, cities, cars..." />
         </div>
-        <button className="glass-panel inline-flex h-11 w-11 items-center justify-center rounded-2xl">
-          <Bell className="h-4 w-4" />
-        </button>
+        <NotificationButton className="glass-panel h-11 w-11 border-white/10 bg-white/5" />
       </div>
     </div>
   );

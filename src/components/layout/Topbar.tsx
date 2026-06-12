@@ -1,6 +1,7 @@
-import { Bell, ChevronDown, Globe, LogOut, Search } from "lucide-react";
+import { ChevronDown, Globe, LogOut, Search } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { authService } from "@/services/authService";
+import { NotificationButton } from "@/components/layout/NotificationButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -20,9 +21,7 @@ export function Topbar() {
           FR
           <ChevronDown className="h-4 w-4 text-muted-foreground" />
         </button>
-        <button className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-border bg-card text-foreground shadow-sm">
-          <Bell className="h-4 w-4" />
-        </button>
+        <NotificationButton />
         <div className="flex items-center gap-3 rounded-2xl border border-border bg-card px-3 py-2 shadow-sm">
           <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 font-bold text-primary">SO</div>
           <div className="hidden sm:block">

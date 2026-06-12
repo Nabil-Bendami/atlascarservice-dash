@@ -42,6 +42,17 @@ export interface OwnerApiToken {
   createdAt: string;
 }
 
+export interface ContactMessage {
+  id: string;
+  fullName: string;
+  email: string | null;
+  phone: string | null;
+  subject: string | null;
+  message: string;
+  status: "unread" | "read" | string;
+  createdAt: string;
+}
+
 export interface DashboardStats {
   totalAgencies: number;
   totalCars: number;

@@ -35,7 +35,6 @@ interface CarRow {
 interface AgencyRow {
   id: string;
   name?: string | null;
-  city?: string | null;
   phone?: string | null;
 }
 
@@ -102,7 +101,7 @@ function mapReservation(row: ReservationRow, car: CarRow | null, agency: AgencyR
     clientName: row.client_name || emptyValue,
     clientPhone: row.client_phone || emptyValue,
     clientEmail: row.client_email || emptyValue,
-    city: row.city || agency?.city || emptyValue,
+    city: row.city || emptyValue,
     carId: reservationCarId,
     carName,
     carImage: null,
@@ -189,6 +188,8 @@ export const reservationService = {
 
     console.log("CARS_RAW", cars);
     console.log("AGENCIES_RAW", agencies);
+    console.log("FIXED_CARS_QUERY_RESULT", cars);
+    console.log("FIXED_AGENCIES_QUERY_RESULT", agencies);
     console.log("ALL_CARS", cars);
     console.log("ALL_AGENCIES", agencies);
 

@@ -17,7 +17,7 @@ function defaultSettings(profile: OwnerProfile): OwnerSettings {
     },
     workspace: {
       workspaceName: "Atlas Owner Dashboard",
-      companyName: "Atlas Drive",
+      companyName: "Atlas Cars",
       companyWebsite: "https://atlas.example",
     },
     appearance: {

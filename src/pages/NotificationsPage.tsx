@@ -65,7 +65,7 @@ export function NotificationsPage() {
       <PageHeader
         eyebrow="Contact inbox"
         title="Notifications"
-        subtitle="Read and manage messages submitted from the public Atlas Drives contact form."
+        subtitle="Read and manage messages submitted from the public Atlas Cars contact form."
         actions={
           <Button variant="outline" onClick={() => void messagesQuery.reload()}>
             <RefreshCw className="h-4 w-4" />

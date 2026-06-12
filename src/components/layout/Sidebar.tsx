@@ -22,7 +22,7 @@ export function Sidebar() {
         <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white/20">
           <ShieldCheck className="h-5 w-5" />
         </div>
-        <p className="mt-4 text-xs font-semibold uppercase tracking-[0.3em] text-white/80">Atlas Drive</p>
+        <p className="mt-4 text-xs font-semibold uppercase tracking-[0.3em] text-white/80">Atlas Cars</p>
         <h2 className="mt-2 text-2xl font-extrabold">Owner Dashboard</h2>
         <p className="mt-2 text-sm text-white/80">Private command center for fleet, agencies, and traffic analytics.</p>
       </div>

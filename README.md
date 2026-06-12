@@ -1,6 +1,6 @@
 # Atlas Car Service Dashboard
 
-Owner and agency administration dashboard for the Atlas Drive platform. This app provides back-office tooling for managing agencies, cars, cities, traffic insights, reservations, and Supabase-powered operational workflows.
+Owner and agency administration dashboard for the Atlas Cars platform. This app provides back-office tooling for managing agencies, cars, cities, traffic insights, reservations, and Supabase-powered operational workflows.
 
 ## Features
 

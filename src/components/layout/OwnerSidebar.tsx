@@ -1,7 +1,9 @@
-import { Bell, Building2, Bug, CalendarCheck, Car, Gauge, LogOut, MapPinned, Map, ShieldCheck, Star } from "lucide-react";
+import { Bell, Building2, Bug, CalendarCheck, Car, Gauge, LogOut, MapPinned, Map, MessageCircle, ShieldCheck, Star } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { authService } from "@/services/authService";
 import { cn } from "@/lib/utils";
+
+const premiumSupportWhatsappUrl = "https://wa.me/212647998805";
 
 const links = [
   { to: "/dashboard", label: "Dashboard", icon: Gauge },
@@ -45,6 +47,16 @@ export function OwnerSidebar() {
           </NavLink>
         ))}
       </nav>
+
+      <a
+        href={premiumSupportWhatsappUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-4 flex items-center justify-center gap-2 rounded-2xl bg-accent px-4 py-3 text-sm font-semibold text-accent-foreground shadow-lg shadow-accent/10 transition hover:bg-accent/90"
+      >
+        <MessageCircle className="h-4 w-4" />
+        Support premium
+      </a>
 
       <button
         type="button"

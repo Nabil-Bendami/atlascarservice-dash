@@ -60,9 +60,9 @@ export const cityService = {
       return mockCities.find((city) => city.id === cityId) ?? null;
     }
 
-    const { data, error } = await supabase.from("owner_cities_view").select("*").eq("id", Number(cityId)).single();
+    const { data, error } = await supabase.from("owner_cities_view").select("*").eq("id", Number(cityId)).maybeSingle();
     if (error) throw error;
-    return mapCity(data as Record<string, unknown>);
+    return data ? mapCity(data as Record<string, unknown>) : null;
   },
 
   async getCityAgencies(cityId: string) {

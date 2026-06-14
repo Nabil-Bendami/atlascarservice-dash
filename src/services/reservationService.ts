@@ -227,6 +227,13 @@ export const reservationService = {
     return mappedReservations;
   },
 
+  async getOwnerReservationById(reservationId: string) {
+    if (!reservationId) return null;
+
+    const reservations = await this.listOwnerReservations();
+    return reservations.find((reservation) => reservation.id === reservationId) ?? null;
+  },
+
   async getReservationsCount() {
     if (!isSupabaseConfigured) return 0;
 

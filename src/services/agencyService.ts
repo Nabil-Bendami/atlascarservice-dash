@@ -1,9 +1,15 @@
 import { mockAgencies, mockAgencyFromInput, mockCars, mockReservationHistory } from "@/data/mock-data";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { FunctionsFetchError, FunctionsHttpError, FunctionsRelayError } from "@supabase/supabase-js";
-import type { Agency, AgencyCreateInput, Car, ReservationHistoryItem } from "@/types";
+import type { Agency, AgencyCreateInput, AgencyDocument, AgencyTrafficStats, Car, OwnerReview, ReservationHistoryItem } from "@/types";
 
 const AGENCY_MEDIA_BUCKET = "agency-media";
+
+function queryErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object" && "message" in error) return String((error as { message?: unknown }).message ?? "Unknown error");
+  return "Unknown error";
+}
 
 function mapAgency(row: Record<string, unknown>): Agency {
   return {
@@ -51,6 +57,72 @@ function mapCar(row: Record<string, unknown>): Car {
     views: Number(row.views ?? 0),
     whatsappClicks: Number(row.whatsapp_clicks ?? 0),
     phoneClicks: Number(row.phone_clicks ?? 0),
+  };
+}
+
+function mapAgencyDocument(row: Record<string, unknown>, signedUrl?: string | null): AgencyDocument {
+  const fileUrl = String(signedUrl ?? row.file_url ?? row.document_url ?? row.url ?? row.public_url ?? "");
+  const storagePath =
+    typeof row.storage_path === "string" && row.storage_path.trim()
+      ? row.storage_path.trim()
+      : typeof row.file_path === "string" && row.file_path.trim()
+        ? row.file_path.trim()
+        : typeof row.path === "string" && row.path.trim()
+          ? row.path.trim()
+          : null;
+  const storageBucket =
+    typeof row.storage_bucket === "string" && row.storage_bucket.trim()
+      ? row.storage_bucket.trim()
+      : typeof row.bucket_name === "string" && row.bucket_name.trim()
+        ? row.bucket_name.trim()
+        : typeof row.bucket === "string" && row.bucket.trim()
+          ? row.bucket.trim()
+          : null;
+  const fallbackName =
+    String(row.file_name ?? row.filename ?? "").trim() ||
+    (storagePath ? storagePath.split("/").pop() || "" : "") ||
+    (fileUrl ? fileUrl.split("/").pop() || "" : "") ||
+    "Document";
+
+  return {
+    id: String(row.id),
+    agencyId: String(row.agency_id),
+    documentName: String(row.document_name ?? row.name ?? row.title ?? fallbackName),
+    documentType: String(row.document_type ?? row.file_type ?? "Autre"),
+    fileName: fallbackName,
+    fileUrl,
+    status: String(row.status ?? "pending"),
+    createdAt: String(row.uploaded_at ?? row.created_at ?? ""),
+    storageBucket,
+    storagePath,
+    raw: row,
+  };
+}
+
+function logAgencyDocumentShape(row: Record<string, unknown>) {
+  console.log("AGENCY_DOCUMENTS_UPLOAD", row);
+  console.log("AGENCY_DOCUMENTS_UPLOAD_FIELDS", {
+    id: row.id ?? null,
+    agency_id: row.agency_id ?? null,
+    file_name: row.file_name ?? row.filename ?? row.document_name ?? row.name ?? row.title ?? null,
+    file_url: row.file_url ?? null,
+    document_url: row.document_url ?? null,
+    storage_path: row.storage_path ?? row.file_path ?? null,
+    storage_bucket: row.storage_bucket ?? row.bucket_name ?? null,
+    created_at: row.created_at ?? row.uploaded_at ?? null,
+  });
+}
+
+function mapAgencyReview(row: Record<string, unknown>): OwnerReview {
+  return {
+    id: String(row.id),
+    rating: Number(row.rating ?? 0),
+    comment: String(row.comment ?? ""),
+    targetType: String(row.target_type ?? "agency"),
+    agencyId: row.agency_id ? String(row.agency_id) : null,
+    agencyName: null,
+    status: String(row.status ?? "published"),
+    createdAt: String(row.created_at ?? ""),
   };
 }
 
@@ -174,9 +246,20 @@ export const agencyService = {
       return mockAgencies.find((agency) => agency.id === agencyId) ?? null;
     }
 
-    const { data, error } = await supabase.from("owner_agencies_view").select("*").eq("id", agencyId).single();
-    if (error) throw error;
-    return mapAgency(data as Record<string, unknown>);
+    if (!agencyId) return null;
+
+    const { data, error } = await supabase.from("owner_agencies_view").select("*").eq("id", agencyId).maybeSingle();
+    console.log("AGENCY_QUERY", data);
+    console.log("OWNER_AGENCY_DATA", data);
+
+    if (error) {
+      console.error("AGENCY_QUERY_ERROR", error);
+      console.error("OWNER_AGENCY_DETAILS_ERROR", error);
+      console.error("AGENCY_ID", agencyId);
+      throw new Error(`Failed to load agency profile: ${queryErrorMessage(error)}`);
+    }
+
+    return data ? mapAgency(data as Record<string, unknown>) : null;
   },
 
   async getAgencyCars(agencyId: string) {
@@ -184,9 +267,97 @@ export const agencyService = {
       return mockCars.filter((car) => car.agencyId === agencyId);
     }
 
+    if (!agencyId) return [];
+
     const { data, error } = await supabase.from("owner_cars_view").select("*").eq("agency_id", agencyId);
-    if (error) throw error;
+    console.log("CARS_QUERY", data);
+    if (error) {
+      console.error("CARS_QUERY_ERROR", error);
+      console.error("OWNER_AGENCY_DETAILS_ERROR", error);
+      console.error("AGENCY_ID", agencyId);
+      throw new Error(`Failed to load agency vehicles: ${queryErrorMessage(error)}`);
+    }
     return (data ?? []).map((row) => mapCar(row as Record<string, unknown>));
+  },
+
+  async getAgencyDocuments(agencyId: string) {
+    if (!isSupabaseConfigured) {
+      return [] satisfies AgencyDocument[];
+    }
+
+    if (!agencyId) return [];
+
+    console.log("AGENCY_ID", agencyId);
+
+    const { data, error } = await supabase
+      .from("agency_documents")
+      .select("*")
+      .eq("agency_id", agencyId)
+      .order("created_at", { ascending: false });
+
+    console.log("DOCUMENTS_QUERY", data);
+    console.log("AGENCY_DOCUMENTS_QUERY", data);
+
+    if (error) {
+      console.error("DOCUMENTS_QUERY_ERROR", error);
+      console.error("DOCUMENTS_QUERY_ERROR_FULL", JSON.stringify(error, null, 2));
+      console.error("OWNER_AGENCY_DETAILS_ERROR", error);
+      console.error("AGENCY_ID", agencyId);
+      throw new Error(`Failed to load agency documents: ${queryErrorMessage(error)}`);
+    }
+
+    const tableRows = (data ?? []) as Record<string, unknown>[];
+    const documents = tableRows.map((row) => {
+      logAgencyDocumentShape(row);
+      return mapAgencyDocument(row);
+    });
+    console.log("OWNER_AGENCY_DOCUMENTS", documents);
+    console.log("AGENCY_DOCUMENTS_QUERY", documents);
+    return documents;
+  },
+
+  async getAgencyReviews(agencyId: string) {
+    if (!isSupabaseConfigured) return [] satisfies OwnerReview[];
+    if (!agencyId) return [];
+
+    const { data, error } = await supabase
+      .from("reviews")
+      .select("*")
+      .eq("agency_id", agencyId)
+      .order("created_at", { ascending: false });
+
+    console.log("REVIEWS_QUERY", data);
+
+    if (error) {
+      console.error("REVIEWS_QUERY_ERROR", error);
+      console.error("OWNER_AGENCY_DETAILS_ERROR", error);
+      console.error("AGENCY_ID", agencyId);
+      throw new Error(`Failed to load reviews: ${queryErrorMessage(error)}`);
+    }
+
+    return (data ?? []).map((row) => mapAgencyReview(row as Record<string, unknown>));
+  },
+
+  async getAgencyTrafficStats(agencyId: string): Promise<AgencyTrafficStats> {
+    if (!isSupabaseConfigured || !agencyId) {
+      return { totalEvents: 0 };
+    }
+
+    const { count, error } = await supabase
+      .from("traffic_events")
+      .select("id", { count: "exact", head: true })
+      .eq("agency_id", agencyId);
+
+    console.log("TRAFFIC_QUERY", { totalEvents: count ?? 0 });
+
+    if (error) {
+      console.error("TRAFFIC_QUERY_ERROR", error);
+      console.error("OWNER_AGENCY_DETAILS_ERROR", error);
+      console.error("AGENCY_ID", agencyId);
+      throw new Error(`Failed to load traffic analytics: ${queryErrorMessage(error)}`);
+    }
+
+    return { totalEvents: count ?? 0 };
   },
 
   async createAgencyWithAuth(input: AgencyCreateInput): Promise<AgencyCreationResult> {
@@ -318,6 +489,8 @@ export const agencyService = {
       }));
     }
 
+    if (!agencyId) return [];
+
     const { data, error } = await supabase
       .from("reservations")
       .select("*, cars(*)")
@@ -325,7 +498,12 @@ export const agencyService = {
       .eq("status", "verified")
       .order("created_at", { ascending: false });
 
+    console.log("RESERVATIONS_QUERY", data);
+
     if (error) {
+      console.error("RESERVATIONS_QUERY_ERROR", error);
+      console.error("OWNER_AGENCY_DETAILS_ERROR", error);
+      console.error("AGENCY_ID", agencyId);
       console.error("AGENCY_RESERVATIONS_FETCH_ERROR", {
         agencyId,
         code: error.code,
@@ -333,7 +511,7 @@ export const agencyService = {
         details: error.details,
         hint: error.hint,
       });
-      throw error;
+      throw new Error(`Failed to load reservations: ${queryErrorMessage(error)}`);
     }
 
     console.log("AGENCY_RESERVATIONS_FETCH_RESPONSE", {

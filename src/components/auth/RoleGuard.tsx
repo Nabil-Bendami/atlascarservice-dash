@@ -1,5 +1,5 @@
-import { Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { AccessDeniedPage } from "@/pages/NotFoundPage";
 import { authService } from "@/services/authService";
 import type { OwnerRole } from "@/types";
 
@@ -24,7 +24,7 @@ export function RoleGuard({
   }
 
   if (!allowed) {
-    return <Navigate to="/login" replace />;
+    return <AccessDeniedPage />;
   }
 
   return <>{children}</>;

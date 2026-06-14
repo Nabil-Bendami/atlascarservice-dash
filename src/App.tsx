@@ -1,8 +1,9 @@
 import { Suspense, lazy } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Route, Routes } from "react-router-dom";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { RoleGuard } from "@/components/auth/RoleGuard";
 import { AppLayout } from "@/layouts/AppLayout";
+import { NotFoundPage } from "@/pages/NotFoundPage";
 
 const LoginPage = lazy(() => import("@/pages/LoginPage").then((module) => ({ default: module.LoginPage })));
 const AgencyDashboardPage = lazy(() =>
@@ -11,6 +12,9 @@ const AgencyDashboardPage = lazy(() =>
 const DashboardPage = lazy(() => import("@/pages/DashboardPage").then((module) => ({ default: module.DashboardPage })));
 const OwnerReservationsPage = lazy(() =>
   import("@/pages/OwnerReservationsPage").then((module) => ({ default: module.OwnerReservationsPage })),
+);
+const ReservationDetailsPage = lazy(() =>
+  import("@/pages/ReservationDetailsPage").then((module) => ({ default: module.ReservationDetailsPage })),
 );
 const NotificationsPage = lazy(() =>
   import("@/pages/NotificationsPage").then((module) => ({ default: module.NotificationsPage })),
@@ -42,7 +46,6 @@ const SettingsPage = lazy(() => import("@/pages/SettingsPage").then((module) => 
 const SupabaseDebugPage = lazy(() =>
   import("@/pages/SupabaseDebugPage").then((module) => ({ default: module.SupabaseDebugPage })),
 );
-
 export function App() {
   return (
     <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-sm text-slate-500">Loading page…</div>}>
@@ -59,6 +62,8 @@ export function App() {
           >
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/dashboard/reservations" element={<OwnerReservationsPage />} />
+            <Route path="/dashboard/reservations/:reservationId" element={<ReservationDetailsPage />} />
+            <Route path="/reservations/:reservationId" element={<ReservationDetailsPage />} />
             <Route path="/dashboard/notifications" element={<NotificationsPage />} />
             <Route path="/dashboard/reviews" element={<ReviewsPage />} />
             <Route path="/agencies" element={<AgenciesPage />} />
@@ -66,6 +71,7 @@ export function App() {
             <Route path="/cities" element={<CitiesPage />} />
             <Route path="/cities/:cityId" element={<CityDetailsPage />} />
             <Route path="/agencies/:agencyId" element={<AgencyDetailsPage />} />
+            <Route path="/dashboard/agency/:agencyId" element={<AgencyDetailsPage />} />
             <Route path="/cars" element={<CarsPage />} />
             <Route path="/cars/:carId" element={<CarDetailsPage />} />
             <Route path="/traffic" element={<TrafficPage />} />
@@ -75,7 +81,7 @@ export function App() {
             <Route path="/debug/supabase" element={<SupabaseDebugPage />} />
           </Route>
         </Route>
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Suspense>
   );

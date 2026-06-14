@@ -3,6 +3,7 @@ import { AsyncState } from "@/components/shared/AsyncState";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable } from "@/components/shared/DataTable";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EntityNotFound } from "@/pages/NotFoundPage";
 import { useAsyncData } from "@/hooks/useAsyncData";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import { carService } from "@/services/carService";
@@ -11,38 +12,49 @@ export function CarDetailsPage() {
   const { carId = "" } = useParams();
   const carQuery = useAsyncData(() => carService.getCarById(carId), [carId]);
   const historyQuery = useAsyncData(() => carService.getReservationHistory(carId), [carId]);
+  const car = carQuery.data;
+
+  if (!carId) {
+    return <EntityNotFound entity="voiture" description="L'identifiant de la voiture est manquant." />;
+  }
 
   return (
     <AsyncState loading={carQuery.loading || historyQuery.loading} error={carQuery.error ?? historyQuery.error}>
-      {carQuery.data ? (
+      {car ? (
         <div className="space-y-6">
           <PageHeader
             eyebrow="Car profile"
-            title={`${carQuery.data.brand} ${carQuery.data.model}`}
-            subtitle={`Detailed commercial profile for ${carQuery.data.agencyName} in ${carQuery.data.cityName}, including revenue, click activity, and reservation history.`}
+            title={`${car.brand} ${car.model}`}
+            subtitle={`Detailed commercial profile for ${car.agencyName} in ${car.cityName}, including revenue, click activity, and reservation history.`}
           />
           <Card>
             <CardContent className="grid gap-6 pt-6 xl:grid-cols-[1.2fr_0.8fr]">
-              <img
-                src={carQuery.data.photos[0]}
-                alt={`${carQuery.data.brand} ${carQuery.data.model}`}
-                className="h-[380px] w-full rounded-3xl object-cover"
-              />
+              {car.photos?.[0] ? (
+                <img
+                  src={car.photos[0]}
+                  alt={`${car.brand} ${car.model}`}
+                  className="h-[380px] w-full rounded-3xl object-cover"
+                />
+              ) : (
+                <div className="flex h-[380px] w-full items-center justify-center rounded-3xl bg-slate-100 text-sm font-semibold text-muted-foreground">
+                  Image indisponible
+                </div>
+              )}
               <div className="space-y-4">
                 <div>
-                  <p className="text-sm uppercase tracking-[0.25em] text-accent">{carQuery.data.agencyName}</p>
-                  <h1 className="mt-2 text-3xl font-bold">{carQuery.data.brand} {carQuery.data.model}</h1>
-                  <p className="mt-2 text-muted-foreground">{carQuery.data.year} · {carQuery.data.cityName}</p>
+                  <p className="text-sm uppercase tracking-[0.25em] text-accent">{car.agencyName}</p>
+                  <h1 className="mt-2 text-3xl font-bold">{car.brand} {car.model}</h1>
+                  <p className="mt-2 text-muted-foreground">{car.year} · {car.cityName}</p>
                 </div>
                 <div className="grid gap-3 md:grid-cols-2">
-                  <Info label="Price per day" value={formatCurrency(carQuery.data.pricePerDay)} />
-                  <Info label="Availability" value={carQuery.data.availability} />
-                  <Info label="Rented days" value={formatNumber(carQuery.data.totalRentedDays)} />
-                  <Info label="Revenue" value={formatCurrency(carQuery.data.estimatedRevenue)} />
-                  <Info label="Views" value={formatNumber(carQuery.data.views)} />
-                  <Info label="WhatsApp clicks" value={formatNumber(carQuery.data.whatsappClicks)} />
-                  <Info label="Phone clicks" value={formatNumber(carQuery.data.phoneClicks)} />
-                  <Info label="Reservations" value={formatNumber(carQuery.data.reservationsCount)} />
+                  <Info label="Price per day" value={formatCurrency(car.pricePerDay)} />
+                  <Info label="Availability" value={car.availability} />
+                  <Info label="Rented days" value={formatNumber(car.totalRentedDays)} />
+                  <Info label="Revenue" value={formatCurrency(car.estimatedRevenue)} />
+                  <Info label="Views" value={formatNumber(car.views)} />
+                  <Info label="WhatsApp clicks" value={formatNumber(car.whatsappClicks)} />
+                  <Info label="Phone clicks" value={formatNumber(car.phoneClicks)} />
+                  <Info label="Reservations" value={formatNumber(car.reservationsCount)} />
                 </div>
               </div>
             </CardContent>
@@ -61,7 +73,9 @@ export function CarDetailsPage() {
             ]}
           />
         </div>
-      ) : null}
+      ) : (
+        <EntityNotFound entity="voiture" />
+      )}
     </AsyncState>
   );
 }

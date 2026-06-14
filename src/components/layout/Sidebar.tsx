@@ -1,6 +1,8 @@
-import { Bell, Building2, CalendarCheck, Car, Gauge, Globe2, MapPinned, PlusSquare, Settings, ShieldCheck, Star } from "lucide-react";
+import { Bell, Building2, CalendarCheck, Car, Gauge, Globe2, MapPinned, MessageCircle, PlusSquare, Settings, ShieldCheck, Star } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
+
+const premiumSupportWhatsappUrl = "https://wa.me/212647998805";
 
 const links = [
   { to: "/dashboard", label: "Dashboard", icon: Gauge },
@@ -50,6 +52,15 @@ export function Sidebar() {
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Performance</p>
         <p className="mt-2 text-lg font-bold text-slate-900">92% platform health</p>
         <p className="mt-1 text-sm text-muted-foreground">Strong traffic conversion across major cities.</p>
+        <a
+          href={premiumSupportWhatsappUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-soft transition-all hover:bg-[rgb(var(--accent-hover)/1)]"
+        >
+          <MessageCircle className="h-4 w-4" />
+          Support premium
+        </a>
       </div>
     </aside>
   );

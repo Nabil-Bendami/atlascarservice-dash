@@ -120,6 +120,24 @@ export interface Agency {
   conversionRate: number;
 }
 
+export interface AgencyDocument {
+  id: string;
+  agencyId: string;
+  documentName: string;
+  documentType: string;
+  fileName: string;
+  fileUrl: string;
+  status: string;
+  createdAt: string;
+  storageBucket: string | null;
+  storagePath: string | null;
+  raw: Record<string, unknown>;
+}
+
+export interface AgencyTrafficStats {
+  totalEvents: number;
+}
+
 export interface Car {
   id: string;
   agencyId: string;

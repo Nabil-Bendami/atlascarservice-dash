@@ -1,9 +1,8 @@
 import { Suspense, lazy } from "react";
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { RoleGuard } from "@/components/auth/RoleGuard";
 import { AppLayout } from "@/layouts/AppLayout";
-import { NotFoundPage } from "@/pages/NotFoundPage";
 
 const LoginPage = lazy(() => import("@/pages/LoginPage").then((module) => ({ default: module.LoginPage })));
 const AgencyDashboardPage = lazy(() =>
@@ -61,6 +60,7 @@ export function App() {
             }
           >
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/dashboard/owner" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard/reservations" element={<OwnerReservationsPage />} />
             <Route path="/dashboard/reservations/:reservationId" element={<ReservationDetailsPage />} />
             <Route path="/reservations/:reservationId" element={<ReservationDetailsPage />} />
@@ -81,7 +81,7 @@ export function App() {
             <Route path="/debug/supabase" element={<SupabaseDebugPage />} />
           </Route>
         </Route>
-        <Route path="*" element={<NotFoundPage />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </Suspense>
   );

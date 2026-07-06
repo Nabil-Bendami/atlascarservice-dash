@@ -209,6 +209,7 @@ serve(async (request) => {
     const coverUrl = asNullableString(payload.cover_url ?? payload.coverImage);
     const status = asNullableString(payload.status) ?? "active";
     const isVerified = asNullableBoolean(payload.is_verified ?? payload.verified) ?? true;
+    const isSuspended = status.toLowerCase() === "suspended";
 
     const createUserResult = await supabaseAdmin.auth.admin.createUser({
       email,
@@ -246,6 +247,8 @@ serve(async (request) => {
       cover_url: coverUrl,
       status,
       is_verified: isVerified,
+      is_blocked: isSuspended,
+      is_suspended: isSuspended,
     };
 
     if (hasAgencyRegionId) {

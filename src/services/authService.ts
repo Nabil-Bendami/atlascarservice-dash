@@ -10,6 +10,8 @@ function normalizeRole(value: unknown): OwnerProfile["role"] {
   switch (String(value ?? "").trim().toLowerCase()) {
     case "super_owner":
       return "super_owner";
+    case "admin":
+      return "admin";
     case "agency":
     case "agency_owner":
       return "agency";

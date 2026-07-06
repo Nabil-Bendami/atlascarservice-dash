@@ -1,6 +1,6 @@
 export type AgencyStatus = "active" | "suspended";
 export type CarAvailability = "available" | "rented" | "maintenance";
-export type OwnerRole = "super_owner" | "agency" | "agency_owner" | "client" | "guest";
+export type OwnerRole = "super_owner" | "admin" | "agency" | "agency_owner" | "client" | "guest";
 
 export interface OwnerProfile {
   id: string;
@@ -112,6 +112,7 @@ export interface Agency {
   longitude: number;
   status: AgencyStatus;
   isBlocked: boolean;
+  isSuspended: boolean;
   verified: boolean;
   carsCount: number;
   reservationsCount: number;

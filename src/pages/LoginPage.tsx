@@ -22,11 +22,11 @@ export function LoginPage() {
     try {
       console.info("[login] submitting owner login", { email: email.trim().toLowerCase() });
       const profile = await authService.signIn(email, password);
-      if (profile.role !== "super_owner" && profile.role !== "agency") {
+      if (profile.role !== "super_owner" && profile.role !== "admin" && profile.role !== "agency") {
         throw new Error(`Access denied. Unsupported role: ${profile.role}.`);
       }
       const ownerTarget = (location.state as { from?: { pathname: string } })?.from?.pathname ?? "/dashboard";
-      const target = profile.role === "super_owner" ? ownerTarget : authService.getDefaultRedirectTarget(profile);
+      const target = profile.role === "super_owner" || profile.role === "admin" ? ownerTarget : authService.getDefaultRedirectTarget(profile);
       navigate(target, { replace: true });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to login";

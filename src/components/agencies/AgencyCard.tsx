@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Building2, MapPin, Phone, Wallet } from "lucide-react";
+import { Building2, MapPin, Phone, Trash2, Wallet } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,21 +9,33 @@ import type { Agency } from "@/types";
 type AgencyCardProps = {
   agency: Agency;
   isUpdating?: boolean;
+  isDeleting?: boolean;
+  canDelete?: boolean;
   onToggleBlocked?: (agency: Agency, nextBlockedState: boolean) => Promise<void> | void;
+  onDelete?: (agency: Agency) => void;
 };
 
-export function AgencyCard({ agency, isUpdating = false, onToggleBlocked }: AgencyCardProps) {
+export function AgencyCard({
+  agency,
+  isUpdating = false,
+  isDeleting = false,
+  canDelete = false,
+  onToggleBlocked,
+  onDelete,
+}: AgencyCardProps) {
+  const isSuspended = agency.isSuspended || agency.status === "suspended";
+
   async function handleToggleBlocked() {
     if (!onToggleBlocked) return;
 
     const confirmed = window.confirm(
-      agency.isBlocked
+      isSuspended
         ? "Are you sure you want to unblock this agency? Its ads and cars will appear again on the public site."
         : "Are you sure you want to block this agency? Its ads and cars will no longer appear on the public site.",
     );
 
     if (!confirmed) return;
-    await onToggleBlocked(agency, !agency.isBlocked);
+    await onToggleBlocked(agency, !isSuspended);
   }
 
   return (
@@ -36,12 +48,13 @@ export function AgencyCard({ agency, isUpdating = false, onToggleBlocked }: Agen
             <h3 className="text-xl font-bold text-slate-900">{agency.name}</h3>
             <p className="text-sm text-muted-foreground">{agency.address}</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
             {agency.isBlocked ? <Badge variant="destructive">Blocked</Badge> : null}
             <Badge variant={agency.verified ? "success" : "secondary"}>
               {agency.verified ? "Verified" : "Pending"}
             </Badge>
-            <Badge variant={agency.status === "active" ? "default" : "destructive"}>{agency.status}</Badge>
+            <Badge variant={isSuspended ? "destructive" : "success"}>{isSuspended ? "Suspended" : "Active"}</Badge>
+            <Badge variant={agency.status === "active" ? "default" : "destructive"}>status: {agency.status}</Badge>
           </div>
         </div>
 
@@ -54,19 +67,31 @@ export function AgencyCard({ agency, isUpdating = false, onToggleBlocked }: Agen
           <Metric icon={Wallet} label="Conversion" value={`${agency.conversionRate}%`} />
         </div>
 
-        <div className="mt-5 flex gap-3">
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <Button asChild className="flex-1">
             <Link to={`/agencies/${agency.id}`}>Voir détails</Link>
           </Button>
           <Button
             type="button"
-            variant={agency.isBlocked ? "success" : "destructive"}
+            variant={isSuspended ? "success" : "destructive"}
             className="flex-1"
-            disabled={isUpdating}
+            disabled={isUpdating || isDeleting}
             onClick={() => void handleToggleBlocked()}
           >
-            {isUpdating ? "Updating..." : agency.isBlocked ? "Unblock agency" : "Block agency"}
+            {isUpdating ? "Updating..." : isSuspended ? "Unblock agency" : "Block agency"}
           </Button>
+          {canDelete ? (
+            <Button
+              type="button"
+              variant="destructive"
+              className="flex-1 sm:col-span-2 xl:col-span-1"
+              disabled={isUpdating || isDeleting}
+              onClick={() => onDelete?.(agency)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              {isDeleting ? "Deleting..." : "Delete agency"}
+            </Button>
+          ) : null}
         </div>
       </CardContent>
     </Card>

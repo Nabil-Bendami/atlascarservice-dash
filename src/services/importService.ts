@@ -38,6 +38,7 @@ type AgencyLookup = {
   email: string;
   id: string;
   isBlocked: boolean;
+  isSuspended: boolean;
   name: string;
   status: string;
 };
@@ -126,6 +127,7 @@ async function loadAgencyLookup(includeBlocked = true) {
         email: agency.email,
         id: agency.id,
         isBlocked: agency.isBlocked,
+        isSuspended: agency.isSuspended,
         name: agency.name,
         status: agency.status,
       };
@@ -134,9 +136,9 @@ async function loadAgencyLookup(includeBlocked = true) {
     }, {});
   }
 
-  let query = supabase.from("owner_agencies_view").select("id, name, email, city_id, city_name, status, is_blocked");
+  let query = supabase.from("owner_agencies_view").select("id, name, email, city_id, city_name, status, is_blocked, is_suspended");
   if (!includeBlocked) {
-    query = query.eq("status", "active").eq("is_blocked", false);
+    query = query.eq("status", "active").eq("is_blocked", false).eq("is_suspended", false);
   }
   const { data, error } = await query;
   if (error) throw error;
@@ -148,6 +150,7 @@ async function loadAgencyLookup(includeBlocked = true) {
       email: String(row.email ?? ""),
       id: String(row.id),
       isBlocked: Boolean(row.is_blocked ?? false),
+      isSuspended: Boolean(row.is_suspended ?? row.status === "suspended"),
       name: String(row.name ?? ""),
       status: String(row.status ?? "active"),
     };
@@ -312,7 +315,8 @@ export const importService = {
             description: row.data.description ?? null,
             status: row.data.status?.toLowerCase() === "suspended" ? "suspended" : "active",
             is_verified: parseBoolean(row.data.is_verified) ?? true,
-            is_blocked: false,
+            is_blocked: row.data.status?.toLowerCase() === "suspended",
+            is_suspended: row.data.status?.toLowerCase() === "suspended",
             logo_url: row.data.logo_url || null,
             cover_url: row.data.cover_image_url || null,
             latitude: city?.latitude ?? null,

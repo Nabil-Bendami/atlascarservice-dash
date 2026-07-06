@@ -58,6 +58,7 @@ function mapAgency(row: Record<string, unknown>): Agency {
     longitude: Number(row.longitude ?? 0),
     status: (row.status as Agency["status"]) ?? "active",
     isBlocked: Boolean(row.is_blocked ?? false),
+    isSuspended: Boolean(row.is_suspended ?? row.suspended ?? row.status === "suspended"),
     verified: Boolean(row.verified ?? row.is_verified ?? false),
     carsCount: Number(row.cars_count ?? 0),
     reservationsCount: Number(row.reservations_count ?? 0),

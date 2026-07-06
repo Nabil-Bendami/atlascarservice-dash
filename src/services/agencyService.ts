@@ -11,6 +11,40 @@ function queryErrorMessage(error: unknown) {
   return "Unknown error";
 }
 
+function extractStoragePathFromPublicUrl(url: string, bucket: string) {
+  if (!url.trim()) return null;
+
+  try {
+    const parsedUrl = new URL(url);
+    const publicPrefix = `/storage/v1/object/public/${bucket}/`;
+    const signedPrefix = `/storage/v1/object/sign/${bucket}/`;
+    const pathPrefix = parsedUrl.pathname.includes(publicPrefix) ? publicPrefix : signedPrefix;
+
+    if (!parsedUrl.pathname.includes(pathPrefix)) return null;
+
+    const [, rawPath = ""] = parsedUrl.pathname.split(pathPrefix);
+    const storagePath = decodeURIComponent(rawPath).replace(/^\/+/, "");
+    return storagePath || null;
+  } catch {
+    return null;
+  }
+}
+
+async function removeAgencyMediaAssets(agency: Agency) {
+  const paths = Array.from(
+    new Set(
+      [agency.logo, agency.coverImage]
+        .map((url) => extractStoragePathFromPublicUrl(url, AGENCY_MEDIA_BUCKET))
+        .filter((path): path is string => Boolean(path)),
+    ),
+  );
+
+  if (paths.length === 0) return;
+
+  const { error } = await supabase.storage.from(AGENCY_MEDIA_BUCKET).remove(paths);
+  if (error) throw error;
+}
+
 function mapAgency(row: Record<string, unknown>): Agency {
   return {
     id: String(row.id),
@@ -29,6 +63,7 @@ function mapAgency(row: Record<string, unknown>): Agency {
     longitude: Number(row.longitude ?? 0),
     status: (row.status as Agency["status"]) ?? "active",
     isBlocked: Boolean(row.is_blocked ?? false),
+    isSuspended: Boolean(row.is_suspended ?? row.suspended ?? row.status === "suspended"),
     verified: Boolean(row.verified ?? row.is_verified ?? false),
     carsCount: Number(row.cars_count ?? 0),
     reservationsCount: Number(row.reservations_count ?? 0),
@@ -424,14 +459,22 @@ export const agencyService = {
   },
 
   async setAgencyBlockedState(agencyId: string, isBlocked: boolean) {
+    const nextStatus = isBlocked ? "suspended" : "active";
     console.log("[agency:block-toggle] start", {
       agencyId,
       isBlocked,
+      isSuspended: isBlocked,
+      status: nextStatus,
     });
 
     const updateResult = await supabase
       .from("agencies")
-      .update({ is_blocked: isBlocked })
+      .update({
+        status: nextStatus,
+        is_blocked: isBlocked,
+        is_suspended: isBlocked,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", agencyId)
       .select("*")
       .single();
@@ -460,6 +503,8 @@ export const agencyService = {
         target_id: agencyId,
         details: {
           is_blocked: isBlocked,
+          is_suspended: isBlocked,
+          status: nextStatus,
         },
       });
 
@@ -479,6 +524,22 @@ export const agencyService = {
     }
 
     return refreshedAgency;
+  },
+
+  async deleteAgency(agency: Agency) {
+    if (!isSupabaseConfigured) {
+      return true;
+    }
+
+    await removeAgencyMediaAssets(agency);
+
+    const { data, error } = await supabase.rpc("owner_hard_delete_agency", {
+      p_agency_id: agency.id,
+      p_reason: "Permanently deleted from owner dashboard",
+    });
+
+    if (error) throw error;
+    return data;
   },
 
   async getAgencyReservations(agencyId: string) {

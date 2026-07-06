@@ -54,7 +54,7 @@ export function App() {
           <Route path="/dashboard/agence" element={<AgencyDashboardPage />} />
           <Route
             element={
-              <RoleGuard allowedRoles={["super_owner"]}>
+              <RoleGuard allowedRoles={["super_owner", "admin"]}>
                 <AppLayout />
               </RoleGuard>
             }

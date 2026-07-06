@@ -2,6 +2,21 @@ begin;
 
 alter table public.cars enable row level security;
 
+insert into storage.buckets (id, name, public)
+values
+  ('agency-media', 'agency-media', true),
+  ('car-media', 'car-media', true),
+  ('car-images', 'car-images', true)
+on conflict (id) do update
+set public = true;
+
+drop policy if exists agency_car_media_public_read on storage.objects;
+create policy agency_car_media_public_read
+on storage.objects
+for select
+to anon, authenticated
+using (bucket_id in ('agency-media', 'car-media', 'car-images'));
+
 alter table public.cars
   add column if not exists name text,
   add column if not exists category text,
